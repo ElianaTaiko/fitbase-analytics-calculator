@@ -13,26 +13,6 @@
     window.Render.renderRightColumn(state, config);
   }
 
-  // Если текущий выбор дашбордов вышел за рамки квоты ТЕКУЩЕГО тарифа, подбираем самый дешёвый
-  // платный тариф, который покрывает выбранное по всем категориям — и переключаемся на него,
-  // сохраняя выбор. Работает с любого дашборд-тарифа (Стартовый/Базовый/Продвинутый), не только
-  // "наверх" от бесплатного. Если уже на подходящем/максимальном тарифе — ничего не меняет.
-  function maybeAutoMatchTariff() {
-    const tariff = window.Calculators.getTariff(config, state.tariffId);
-    if (tariff.family !== "dashboard" || !tariff.dashboardGridEnabled) return false;
-
-    const counts = window.Calculators.countSelectedByCategory(Array.from(state.selectedDashboards), config);
-    const exceedsCurrentQuota =
-      counts.basic > tariff.quota.basic || counts.advanced > tariff.quota.advanced || counts.expert > tariff.quota.expert;
-    if (!exceedsCurrentQuota) return false;
-
-    const matchedTariffId = window.Calculators.matchPaidTariffId(counts, config);
-    if (matchedTariffId === tariff.id) return false;
-
-    window.AppState.upgradeToTariff(state, matchedTariffId);
-    return true;
-  }
-
   // Переключатель тарифов
   document.getElementById("tariff-switcher-slot").addEventListener("click", (e) => {
     const card = e.target.closest("[data-tariff-id]");
@@ -48,12 +28,7 @@
       const tariff = window.Calculators.getTariff(config, state.tariffId);
       if (tariff.dashboardGridEnabled) {
         window.AppState.toggleDashboard(state, dashCard.dataset.dashboardId);
-        const switched = maybeAutoMatchTariff();
-        if (switched) {
-          rerenderAll();
-        } else {
-          rerenderLeftAndRight();
-        }
+        rerenderLeftAndRight();
       }
       return;
     }

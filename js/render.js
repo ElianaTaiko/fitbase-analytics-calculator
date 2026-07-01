@@ -89,10 +89,9 @@ function renderDashboardGrid(state, config, tariff) {
           return `
             <label class="dash-card ${checked ? "is-selected" : ""}" data-dashboard-id="${dash.id}">
               <input type="checkbox" class="sr-only" ${checked ? "checked" : ""} />
-              <div class="dash-card-top">
-                <span class="dash-check">${iconCheck()}</span>
-                <span class="dash-label">${escapeHtml(dash.label)}</span>
-              </div>
+              <span class="dash-check-corner">${iconCheck()}</span>
+              <div class="dash-card-icon">${dash.icon || ""}</div>
+              <div class="dash-label">${escapeHtml(dash.label)}</div>
               ${badge}
             </label>`;
         })
@@ -139,11 +138,7 @@ function quotaSummaryText(tariff, config) {
     .filter((p) => p.n > 0)
     .map((p) => `${p.n} ${p.label}`);
   if (parts.length === 0) return "";
-  const base = `Включено в тариф: ${parts.join(" + ")} (Install бесплатно).`;
-  if (tariff.id === "expert_tier") {
-    return `${base} Дополнительные дашборды — платно.`;
-  }
-  return `${base} Дополнительные дашборды — платно, либо тариф автоматически переключится на подходящий более старший по составу выбранного.`;
+  return `Включено в тариф: ${parts.join(" + ")} (Install бесплатно). Дополнительные дашборды — платно.`;
 }
 
 function renderFranchiseFields(state, config) {

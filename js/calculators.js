@@ -122,30 +122,6 @@ function calculateCustomTariff(installHours, integrationsCount, extraObjectsCoun
   };
 }
 
-function countSelectedByCategory(selectedDashboardIds, config) {
-  const selectedSet = new Set(selectedDashboardIds);
-  const counts = {};
-  config.dashboardCategories.forEach((category) => {
-    counts[category.id] = category.dashboards.filter((d) => selectedSet.has(d.id)).length;
-  });
-  return counts;
-}
-
-// Стартовый (ПРО) даёт 1 базовый дашборд бесплатно. Как только выбор выходит за рамки этой
-// квоты, подбираем самый дешёвый платный тариф, чей квота (по всем категориям сразу) покрывает
-// выбранное. Если ни один не покрывает полностью — берём максимальный (Экспертный), а излишек
-// оплачивается разово через Install — как обычно для дашбордов сверх квоты.
-function matchPaidTariffId(counts, config) {
-  const candidates = ["basic_tier", "advanced_tier", "expert_tier"]; // по возрастанию цены
-  for (const id of candidates) {
-    const t = getTariff(config, id);
-    if (counts.basic <= t.quota.basic && counts.advanced <= t.quota.advanced && counts.expert <= t.quota.expert) {
-      return id;
-    }
-  }
-  return "expert_tier";
-}
-
 function calculateCurrentSelection(state, config) {
   const tariff = getTariff(config, state.tariffId);
   if (!tariff) return null;
@@ -164,6 +140,4 @@ window.Calculators = {
   calculateFranchiseTariff,
   calculateCustomTariff,
   calculateCurrentSelection,
-  countSelectedByCategory,
-  matchPaidTariffId,
 };

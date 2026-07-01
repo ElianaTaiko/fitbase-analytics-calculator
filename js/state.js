@@ -34,18 +34,14 @@ function selectTariff(state, config, tariffId) {
   state.tariffId = tariffId;
 
   const prevFamily = prevTariff ? prevTariff.family : null;
-  if (nextTariff.family !== prevFamily || nextTariff.family === "dashboard") {
-    // Смена семейства тарифа (или переход между разными дашборд-тарифами с разными квотами) —
-    // сбрасываем выбор, чтобы не тащить неактуальные значения.
+  if (nextTariff.family !== prevFamily) {
+    // Смена семейства тарифа (dashboard <-> franchise <-> custom) — сбрасываем все поля выбора,
+    // так как они относятся к разным моделям ввода.
     resetFamilyFields(state);
   }
-}
-
-// Автоматический апгрейд со Стартового (ПРО) на платный тариф при выборе дашбордов сверх
-// бесплатной квоты. В отличие от selectTariff, НЕ сбрасывает выбранные дашборды/интеграции —
-// клиент продолжает с тем же набором, просто под другим (платным) тарифом.
-function upgradeToTariff(state, tariffId) {
-  state.tariffId = tariffId;
+  // Переход между тарифами внутри семейства "dashboard" (например, Базовый -> Продвинутый)
+  // НЕ сбрасывает выбранные дашборды/интеграции — Install просто пересчитается под квоту
+  // нового тарифа (часть того, что было "сверх квоты", может стать бесплатной, и наоборот).
 }
 
 function toggleDashboard(state, dashboardId) {
@@ -87,7 +83,6 @@ function setOfferValidityDays(state, value) {
 window.AppState = {
   createInitialState,
   selectTariff,
-  upgradeToTariff,
   toggleDashboard,
   setExtraIntegrationsCount,
   setStudioCount,

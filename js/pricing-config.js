@@ -10,9 +10,9 @@ window.PRICING_CONFIG = {
       installCost: 25000,
       installHours: 5,
       dashboards: [
-        { id: "revenue", label: "Выручка" },
-        { id: "funnel", label: "Воронка" },
-        { id: "subscriptions", label: "Реализация абонементов и услуг" },
+        { id: "revenue", label: "Выручка", icon: "💰" },
+        { id: "funnel", label: "Воронка", icon: "🔻" },
+        { id: "subscriptions", label: "Реализация абонементов и услуг", icon: "🎫" },
       ],
     },
     {
@@ -22,10 +22,10 @@ window.PRICING_CONFIG = {
       installCost: 40000,
       installHours: 8,
       dashboards: [
-        { id: "sales_dept", label: "Отдел продаж" },
-        { id: "marketing", label: "Маркетинг" },
-        { id: "clients", label: "Клиенты" },
-        { id: "trainers", label: "Тренеры" },
+        { id: "sales_dept", label: "Отдел продаж", icon: "🤝" },
+        { id: "marketing", label: "Маркетинг", icon: "📣" },
+        { id: "clients", label: "Клиенты", icon: "👥" },
+        { id: "trainers", label: "Тренеры", icon: "🏋️" },
       ],
     },
     {
@@ -35,8 +35,8 @@ window.PRICING_CONFIG = {
       installCost: 50000,
       installHours: 10,
       dashboards: [
-        { id: "trainer_payroll", label: "Зарплаты тренеров" },
-        { id: "smart_schedule", label: "Умное расписание" },
+        { id: "trainer_payroll", label: "Зарплаты тренеров", icon: "💵" },
+        { id: "smart_schedule", label: "Умное расписание", icon: "🗓️" },
       ],
     },
   ],

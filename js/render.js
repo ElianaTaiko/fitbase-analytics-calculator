@@ -99,7 +99,7 @@ function renderDashboardGrid(state, config, tariff) {
       return `
         <div class="dash-category">
           <div class="dash-category-header">
-            <span>${escapeHtml(category.label)}</span>
+            <span class="dash-category-name">${escapeHtml(category.label)}</span>
             <span class="dash-category-quota">включено: ${quota}</span>
           </div>
           <div class="dash-category-grid">${cardsHtml}</div>
@@ -113,7 +113,7 @@ function renderDashboardGrid(state, config, tariff) {
 function renderIntegrationStepper(state, tariff, config) {
   if (!tariff.integrationOptionEnabled) return "";
   const included = tariff.includedIntegrations;
-  const includedWord = included === 1 ? "интеграция" : "интеграции";
+  const includedWord = included === 1 ? "интеграция" : included === 2 || included === 3 || included === 4 ? "интеграции" : "интеграций";
   return `
     <div class="field-block">
       <label class="field-label">Доп. интеграции с рекламным кабинетом</label>
@@ -133,7 +133,7 @@ function quotaSummaryText(tariff, config) {
   const parts = config.dashboardCategories
     .map((c) => {
       const n = tariff.quota[c.id] || 0;
-      return { n, label: n === 1 ? c.singularLabel : c.label.toLowerCase() };
+      return { n, label: n === 1 ? c.singularLabel : c.pluralLabel };
     })
     .filter((p) => p.n > 0)
     .map((p) => `${p.n} ${p.label}`);

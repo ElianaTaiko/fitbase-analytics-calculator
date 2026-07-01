@@ -186,9 +186,15 @@ h1, h2, h3 {
 .dash-category-header {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   font-weight: 600;
   font-size: 0.9rem;
   margin-bottom: 8px;
+}
+.dash-category-name {
+  color: #2563eb;
+  font-size: 1.05rem;
+  font-weight: 700;
 }
 .dash-category-quota {
   font-weight: 400;

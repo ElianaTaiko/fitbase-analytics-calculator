@@ -40,6 +40,13 @@
       return;
     }
 
+    const franchiseToggle = e.target.closest('[data-action="toggle-franchise-mode"]');
+    if (franchiseToggle) {
+      window.AppState.setFranchiseMode(state, !state.franchiseMode);
+      rerenderLeftAndRight();
+      return;
+    }
+
     const stepperBtn = e.target.closest("[data-action]");
     if (!stepperBtn) return;
     const action = stepperBtn.dataset.action;

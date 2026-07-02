@@ -13,8 +13,9 @@ function createInitialState(config) {
     // custom (Кастомизированный / Кастомизированный+ / Франшиза)
     customInstallHours: 0,
     customIntegrationsCount: 0,
-    customSubMode: "custom", // "custom" | "custom_plus" | "franchise"
-    franchiseType: "uk", // "uk" | "partner" — актуально только при customSubMode === "franchise"
+    customSubMode: "custom", // "custom" | "custom_plus" — актуально только при franchiseMode === false
+    franchiseMode: false, // флажок "Франшиза"
+    franchiseType: "uk", // "uk" | "partner" — актуально только при franchiseMode === true
     // общее
     offerValidityDays: config.offerValidityDaysDefault,
   };
@@ -29,6 +30,7 @@ function resetFamilyFields(state) {
   state.customInstallHours = 0;
   state.customIntegrationsCount = 0;
   state.customSubMode = "custom";
+  state.franchiseMode = false;
   state.franchiseType = "uk";
 }
 
@@ -73,6 +75,10 @@ function setCustomSubMode(state, value) {
   state.customSubMode = value;
 }
 
+function setFranchiseMode(state, value) {
+  state.franchiseMode = !!value;
+}
+
 function setFranchiseType(state, value) {
   state.franchiseType = value;
 }
@@ -95,6 +101,7 @@ window.AppState = {
   setCustomInstallHours,
   setCustomIntegrationsCount,
   setCustomSubMode,
+  setFranchiseMode,
   setFranchiseType,
   setFitbasePro,
   setOfferValidityDays,

@@ -4,7 +4,6 @@
   --primary-strong: #3f35a8;
   --primary-foreground: #ffffff;
   --primary-soft: #ede9fe;
-  --primary-light: #a99cf0; /* на два тона светлее --primary */
   --secondary: #7dd3fc;
   --background: #f2effb;
   --card: rgba(255, 255, 255, 0.94);
@@ -230,15 +229,12 @@ h1, h2, h3 {
   font-size: 0.9rem;
 }
 
-/* Переключатель режимов внутри тарифа (Кастомизированный / Кастомизированный+ / Франшиза, УК/Партнёр) */
+/* Переключатель режимов внутри тарифа (Кастомизированный / Кастомизированный+) */
 .sub-mode-switch {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 14px;
-}
-.sub-mode-switch-nested {
-  margin-top: -6px;
 }
 .sub-mode-btn {
   border: 1px solid var(--border);
@@ -259,10 +255,46 @@ h1, h2, h3 {
   border-color: var(--primary);
   color: var(--primary-foreground);
 }
-.sub-mode-switch-nested .sub-mode-btn.is-active {
-  background: var(--primary-light);
-  border-color: var(--primary-light);
+
+/* Карточки выбора Франшиза для УК / для партнёра */
+.franchise-type-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+@media (max-width: 560px) {
+  .franchise-type-cards {
+    grid-template-columns: 1fr;
+  }
+}
+.franchise-type-card {
+  display: block;
+  cursor: pointer;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 12px 14px;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.franchise-type-card:hover {
+  border-color: #c7cede;
+}
+.franchise-type-card.is-active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+  background: var(--primary-soft);
+}
+.franchise-type-card-title {
+  font-weight: 700;
+  font-size: 0.88rem;
   color: var(--primary-strong);
+  margin-bottom: 4px;
+}
+.franchise-type-card-desc {
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+  line-height: 1.4;
 }
 
 /* Сетка дашбордов */

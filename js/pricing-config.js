@@ -99,6 +99,7 @@ window.PRICING_CONFIG = {
       includedIntegrations: 1,
       dashboardGridEnabled: true,
       integrationOptionEnabled: true,
+      fitbaseProOptionEnabled: true,
     },
     {
       id: "expert_tier",
@@ -111,6 +112,7 @@ window.PRICING_CONFIG = {
       includedIntegrations: 2,
       dashboardGridEnabled: true,
       integrationOptionEnabled: true,
+      fitbaseProOptionEnabled: true,
     },
     {
       id: "custom",

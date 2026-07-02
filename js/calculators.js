@@ -4,16 +4,20 @@ function getTariff(config, tariffId) {
   return config.tariffs.find((t) => t.id === tariffId);
 }
 
-function computeEffectiveQuota(tariff, config) {
-  // Квота дашбордов не меняется галкой Fitbase PRO — она обнуляет только ежемесячную плату
-  // (см. calculateDashboardTariff), а не добавляет дашборды сверх тарифа.
+function computeEffectiveQuota(tariff, config, fitbasePro) {
+  // Галка Fitbase PRO полностью заменяет квоту и стоимость платного тарифа: клиент не платит
+  // за тариф (0 ₽/мес), но получает 1 базовый дашборд бесплатно. Любые дашборды сверх этого —
+  // как обычно, через Install (см. calculateDashboardTariff).
+  if (fitbasePro) {
+    return { basic: 1, advanced: 0, expert: 0 };
+  }
   return { ...tariff.quota };
 }
 
 function calculateDashboardTariff(tariffId, selectedDashboardIds, extraIntegrationsCount, config, fitbasePro) {
   const tariff = getTariff(config, tariffId);
   const selectedSet = new Set(selectedDashboardIds);
-  const effectiveQuota = computeEffectiveQuota(tariff, config);
+  const effectiveQuota = computeEffectiveQuota(tariff, config, fitbasePro);
 
   const includedDashboards = [];
   const extraDashboards = [];
@@ -33,7 +37,7 @@ function calculateDashboardTariff(tariffId, selectedDashboardIds, extraIntegrati
     });
   });
 
-  const includedIntegrations = tariff.includedIntegrations || 0;
+  const includedIntegrations = fitbasePro ? 0 : tariff.includedIntegrations || 0;
   extraIntegrationsCount = Math.max(0, extraIntegrationsCount);
   const totalIntegrationsCount = includedIntegrations + extraIntegrationsCount;
   const extraIntegrationsCost = extraIntegrationsCount * config.integration.costPerUnit;
@@ -148,7 +152,7 @@ function calculateCurrentSelection(state, config) {
 
   if (tariff.family === "custom") {
     let result;
-    if (state.customSubMode === "franchise") {
+    if (state.franchiseMode) {
       if (state.franchiseType === "partner") {
         result = calculateFranchiseTariff(state.studioCount, state.franchiseIntegrationsCount, config);
         result.subModeLabel = "Франшиза для партнёра";
@@ -162,11 +166,12 @@ function calculateCurrentSelection(state, config) {
       result.subModeLabel = state.customSubMode === "custom_plus" ? "Кастомизированный+" : "Кастомизированный";
     }
     result.customSubMode = state.customSubMode;
+    result.franchiseMode = state.franchiseMode;
     result.franchiseType = state.franchiseType;
     return result;
   }
 
-  const fitbasePro = tariff.id === "basic_tier" && state.fitbasePro;
+  const fitbasePro = !!(tariff.fitbaseProOptionEnabled && state.fitbasePro);
   return calculateDashboardTariff(
     tariff.id,
     Array.from(state.selectedDashboards),

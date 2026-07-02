@@ -203,7 +203,6 @@ function renderCustomSubModeSwitch(state) {
   const modes = [
     { value: "custom", label: "Кастомизированный" },
     { value: "custom_plus", label: "Кастомизированный+" },
-    { value: "franchise", label: "Франшиза" },
   ];
   const buttonsHtml = modes
     .map(
@@ -216,32 +215,53 @@ function renderCustomSubModeSwitch(state) {
   return `<div class="sub-mode-switch">${buttonsHtml}</div>`;
 }
 
-function renderFranchiseTypeSwitch(state) {
+function renderFranchiseToggle(state) {
+  return `
+    <label class="checkbox-field" data-action="toggle-franchise-mode">
+      <input type="checkbox" ${state.franchiseMode ? "checked" : ""} />
+      <span>
+        <span class="checkbox-field-label">Франшиза</span>
+        <span class="field-hint">Клиент — часть франчайзинговой сети. Включите, чтобы выбрать, кто платит: управляющая компания сети или партнёр-студия.</span>
+      </span>
+    </label>`;
+}
+
+function renderFranchiseTypeCards(state) {
   const types = [
-    { value: "uk", label: "Франшиза для УК" },
-    { value: "partner", label: "Франшиза для партнёра" },
+    {
+      value: "uk",
+      title: "Франшиза для УК",
+      desc: "Считается по тем же ставкам, что и «Кастомизированный»: Install по ТЗ (часы разработки) + интеграции.",
+    },
+    {
+      value: "partner",
+      title: "Франшиза для партнёра",
+      desc: "Ежемесячная плата за каждую студию + разовый Install-пакет, который не зависит от количества студий.",
+    },
   ];
-  const buttonsHtml = types
+  const cardsHtml = types
     .map(
       (t) => `
-      <button type="button" class="sub-mode-btn ${state.franchiseType === t.value ? "is-active" : ""}" data-action="set-franchise-type" data-value="${t.value}">${escapeHtml(
-        t.label
-      )}</button>`
+      <label class="franchise-type-card ${state.franchiseType === t.value ? "is-active" : ""}" data-action="set-franchise-type" data-value="${t.value}">
+        <div class="franchise-type-card-title">${escapeHtml(t.title)}</div>
+        <div class="franchise-type-card-desc">${escapeHtml(t.desc)}</div>
+      </label>`
     )
     .join("");
-  return `<div class="sub-mode-switch sub-mode-switch-nested">${buttonsHtml}</div>`;
+  return `<div class="franchise-type-cards">${cardsHtml}</div>`;
 }
 
 function renderCustomTariffBody(state, config) {
-  const switchHtml = renderCustomSubModeSwitch(state);
+  const toggleHtml = renderFranchiseToggle(state);
 
-  if (state.customSubMode === "franchise") {
-    const typeSwitchHtml = renderFranchiseTypeSwitch(state);
+  if (state.franchiseMode) {
+    const cardsHtml = renderFranchiseTypeCards(state);
     const fieldsHtml =
       state.franchiseType === "partner" ? renderFranchiseFields(state, config) : renderCustomFields(state, config);
-    return `${switchHtml}${typeSwitchHtml}${fieldsHtml}`;
+    return `${toggleHtml}${cardsHtml}${fieldsHtml}`;
   }
 
+  const switchHtml = renderCustomSubModeSwitch(state);
   const plusNoteHtml =
     state.customSubMode === "custom_plus"
       ? `<p class="field-hint note-box">Кастомизированный+: фиксированная ежемесячная плата ${formatMoney(
@@ -249,7 +269,7 @@ function renderCustomTariffBody(state, config) {
           config.currency
         )} (50% скидка), суммируется с Кастомизированным — отдельный договор на доп. объект.</p>`
       : "";
-  return `${switchHtml}${plusNoteHtml}${renderCustomFields(state, config)}`;
+  return `${toggleHtml}${switchHtml}${plusNoteHtml}${renderCustomFields(state, config)}`;
 }
 
 function renderLeftColumn(state, config) {
@@ -267,7 +287,11 @@ function renderLeftColumn(state, config) {
     return;
   }
 
-  const effectiveQuota = window.Calculators.computeEffectiveQuota(tariff, config);
+  const effectiveQuota = window.Calculators.computeEffectiveQuota(
+    tariff,
+    config,
+    tariff.fitbaseProOptionEnabled && state.fitbasePro
+  );
 
   const fitbaseProHtml =
     tariff.fitbaseProOptionEnabled

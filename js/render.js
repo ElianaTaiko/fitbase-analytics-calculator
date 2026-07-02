@@ -66,28 +66,29 @@ function renderDashboardBadge(dashInfoMap, dashId, config) {
   return "";
 }
 
-function buildDashboardInfoMap(effectiveQuota, selectedDashboards, config) {
-  // Возвращает { dashId: {status: 'included'|'extra', installCost} } на основе текущего выбора,
-  // с тем же правилом порядка по категориям, что и в calculators.js.
+function buildDashboardInfoMap(includedDashboards, extraDashboards) {
+  // Возвращает { dashId: {status: 'included'|'extra', installCost} } напрямую из результата
+  // window.Calculators.categorizeDashboards — та же функция, что считает Install, поэтому
+  // бейджи на карточках всегда совпадают с реальным расчётом (в т.ч. в режиме Fitbase PRO,
+  // где "бесплатный" дашборд определяется порядком выбора, а не порядком в конфиге).
   const map = {};
-  config.dashboardCategories.forEach((category) => {
-    const quota = effectiveQuota[category.id] || 0;
-    let taken = 0;
-    category.dashboards.forEach((dash) => {
-      if (!selectedDashboards.has(dash.id)) return;
-      if (taken < quota) {
-        map[dash.id] = { status: "included" };
-      } else {
-        map[dash.id] = { status: "extra", installCost: category.installCost };
-      }
-      taken += 1;
-    });
+  includedDashboards.forEach((d) => {
+    map[d.id] = { status: "included" };
+  });
+  extraDashboards.forEach((d) => {
+    map[d.id] = { status: "extra", installCost: d.installCost };
   });
   return map;
 }
 
-function renderDashboardGrid(state, config, tariff, effectiveQuota) {
-  const infoMap = buildDashboardInfoMap(effectiveQuota, state.selectedDashboards, config);
+function renderDashboardGrid(state, config, tariff, effectiveQuota, fitbasePro) {
+  const { includedDashboards, extraDashboards } = window.Calculators.categorizeDashboards(
+    tariff,
+    Array.from(state.selectedDashboards),
+    config,
+    fitbasePro
+  );
+  const infoMap = buildDashboardInfoMap(includedDashboards, extraDashboards);
 
   const categoriesHtml = config.dashboardCategories
     .map((category) => {
@@ -106,8 +107,11 @@ function renderDashboardGrid(state, config, tariff, effectiveQuota) {
             </label>`;
         })
         .join("");
+      // В режиме Fitbase PRO бесплатный слот общий на все категории (не привязан заранее
+      // к конкретной), поэтому подсказку "можно выбрать N бесплатно" по категориям не показываем —
+      // единое пояснение уже есть в quotaSummaryText над сеткой.
       const freeHintHtml =
-        quota > 0 ? `<span class="dash-category-free-hint">Можно выбрать ${quota} бесплатно</span>` : "";
+        !fitbasePro && quota > 0 ? `<span class="dash-category-free-hint">Можно выбрать ${quota} бесплатно</span>` : "";
       return `
         <div class="dash-category">
           <div class="dash-category-header">
@@ -139,7 +143,10 @@ function renderIntegrationStepper(state, tariff, config) {
     </div>`;
 }
 
-function quotaSummaryText(config, effectiveQuota) {
+function quotaSummaryText(config, effectiveQuota, fitbasePro) {
+  if (fitbasePro) {
+    return "Включено в тариф: 1 дашборд любой категории на выбор (Install бесплатно). Дополнительные дашборды — платно.";
+  }
   const parts = config.dashboardCategories
     .map((c) => {
       const n = effectiveQuota[c.id] || 0;
@@ -287,11 +294,14 @@ function renderLeftColumn(state, config) {
     return;
   }
 
-  const effectiveQuota = window.Calculators.computeEffectiveQuota(
-    tariff,
+  const fitbasePro = !!(tariff.fitbaseProOptionEnabled && state.fitbasePro);
+  const effectiveQuota = window.Calculators.calculateDashboardTariff(
+    tariff.id,
+    Array.from(state.selectedDashboards),
+    state.extraIntegrationsCount,
     config,
-    tariff.fitbaseProOptionEnabled && state.fitbasePro
-  );
+    fitbasePro
+  ).effectiveQuota;
 
   const fitbaseProHtml =
     tariff.fitbaseProOptionEnabled
@@ -300,7 +310,10 @@ function renderLeftColumn(state, config) {
         <input type="checkbox" ${state.fitbasePro ? "checked" : ""} />
         <span>
           <span class="checkbox-field-label">Тариф Fitbase PRO</span>
-          <span class="field-hint">Клиенту на тарифе Fitbase PRO предоставляется 1 базовый дашборд на выбор (бесплатно, без ежемесячной платы).</span>
+          <span class="field-hint">Клиенту на тарифе Fitbase PRO доступен бесплатно (без Install) 1 дашборд любой категории на выбор. Ежемесячная плата — ${formatMoney(
+            config.fitbaseProMonthlyFee,
+            config.currency
+          )}.</span>
         </span>
       </label>`
       : "";
@@ -308,9 +321,9 @@ function renderLeftColumn(state, config) {
   const noteHtml = tariff.note ? `<p class="field-hint note-box">${escapeHtml(tariff.note)}</p>` : "";
   container.innerHTML = `
     ${fitbaseProHtml}
-    <p class="quota-summary">${quotaSummaryText(config, effectiveQuota)}</p>
+    <p class="quota-summary">${quotaSummaryText(config, effectiveQuota, fitbasePro)}</p>
     ${noteHtml}
-    ${renderDashboardGrid(state, config, tariff, effectiveQuota)}
+    ${renderDashboardGrid(state, config, tariff, effectiveQuota, fitbasePro)}
     ${renderIntegrationStepper(state, tariff, config)}`;
 }
 

@@ -4,26 +4,60 @@ function getTariff(config, tariffId) {
   return config.tariffs.find((t) => t.id === tariffId);
 }
 
-function computeEffectiveQuota(tariff, config, fitbasePro) {
-  // Галка Fitbase PRO полностью заменяет квоту и стоимость платного тарифа: клиент не платит
-  // за тариф (0 ₽/мес), но получает 1 базовый дашборд бесплатно. Любые дашборды сверх этого —
-  // как обычно, через Install (см. calculateDashboardTariff).
-  if (fitbasePro) {
-    return { basic: 1, advanced: 0, expert: 0 };
+function findDashboardMeta(config, dashboardId) {
+  for (const category of config.dashboardCategories) {
+    const dash = category.dashboards.find((d) => d.id === dashboardId);
+    if (dash) return { category, dash };
   }
-  return { ...tariff.quota };
+  return null;
 }
 
-function calculateDashboardTariff(tariffId, selectedDashboardIds, extraIntegrationsCount, config, fitbasePro) {
-  const tariff = getTariff(config, tariffId);
-  const selectedSet = new Set(selectedDashboardIds);
-  const effectiveQuota = computeEffectiveQuota(tariff, config, fitbasePro);
+function deriveQuotaFromIncluded(includedDashboards, config) {
+  // Пересчитывает "квоту по категориям" из фактического списка включённых дашбордов —
+  // используется в режиме Fitbase PRO только для текстовых подсказок (сколько уже включено
+  // в каждой категории); на распределение "включено/доп." сама не влияет.
+  const quota = {};
+  config.dashboardCategories.forEach((c) => {
+    quota[c.id] = 0;
+  });
+  includedDashboards.forEach((d) => {
+    quota[d.categoryId] = (quota[d.categoryId] || 0) + 1;
+  });
+  return quota;
+}
 
+function categorizeDashboards(tariff, selectedDashboardIds, config, fitbasePro) {
   const includedDashboards = [];
   const extraDashboards = [];
 
+  if (fitbasePro) {
+    // Fitbase PRO: 1 дашборд ЛЮБОЙ категории — бесплатно (без Install), ежемесячная плата
+    // фиксирована (config.fitbaseProMonthlyFee). Бесплатным становится тот, что выбран ПЕРВЫМ
+    // по времени клика (порядок selectedDashboardIds = порядок выбора, а не порядок в конфиге) —
+    // любой следующий выбранный дашборд уже платно, через Install по ставке его категории.
+    let freeSlotUsed = false;
+    selectedDashboardIds.forEach((dashboardId) => {
+      const meta = findDashboardMeta(config, dashboardId);
+      if (!meta) return;
+      const item = {
+        id: dashboardId,
+        label: meta.dash.label,
+        categoryId: meta.category.id,
+        categoryLabel: meta.category.label,
+      };
+      if (!freeSlotUsed) {
+        includedDashboards.push(item);
+        freeSlotUsed = true;
+      } else {
+        extraDashboards.push({ ...item, installCost: meta.category.installCost, installHours: meta.category.installHours });
+      }
+    });
+    return { includedDashboards, extraDashboards };
+  }
+
+  const selectedSet = new Set(selectedDashboardIds);
   config.dashboardCategories.forEach((category) => {
-    const quota = effectiveQuota[category.id] || 0;
+    const quota = tariff.quota[category.id] || 0;
     let takenInCategory = 0;
     category.dashboards.forEach((dash) => {
       if (!selectedSet.has(dash.id)) return;
@@ -36,6 +70,14 @@ function calculateDashboardTariff(tariffId, selectedDashboardIds, extraIntegrati
       }
     });
   });
+  return { includedDashboards, extraDashboards };
+}
+
+function calculateDashboardTariff(tariffId, selectedDashboardIds, extraIntegrationsCount, config, fitbasePro) {
+  const tariff = getTariff(config, tariffId);
+
+  const { includedDashboards, extraDashboards } = categorizeDashboards(tariff, selectedDashboardIds, config, fitbasePro);
+  const effectiveQuota = fitbasePro ? deriveQuotaFromIncluded(includedDashboards, config) : { ...tariff.quota };
 
   const includedIntegrations = fitbasePro ? 0 : tariff.includedIntegrations || 0;
   extraIntegrationsCount = Math.max(0, extraIntegrationsCount);
@@ -60,7 +102,7 @@ function calculateDashboardTariff(tariffId, selectedDashboardIds, extraIntegrati
   return {
     family: "dashboard",
     tariff,
-    monthlyFee: fitbasePro ? 0 : tariff.monthlyFee,
+    monthlyFee: fitbasePro ? config.fitbaseProMonthlyFee : tariff.monthlyFee,
     fitbasePro: !!fitbasePro,
     effectiveQuota,
     includedDashboards,
@@ -183,7 +225,7 @@ function calculateCurrentSelection(state, config) {
 
 window.Calculators = {
   getTariff,
-  computeEffectiveQuota,
+  categorizeDashboards,
   calculateDashboardTariff,
   calculateFranchiseTariff,
   calculateCustomTariff,

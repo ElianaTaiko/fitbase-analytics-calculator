@@ -4,6 +4,9 @@ window.PRICING_CONFIG = {
   // Единая ставка часа разработки — используется только для отображения Install в часах
   // (все installCost/installHours ниже ей соответствуют: installCost = installHours * installRatePerHour).
   installRatePerHour: 5000,
+  // Фиксированная ежемесячная плата при включённой галке "Тариф Fitbase PRO" — не зависит от
+  // того, на карточке какого тарифа (Базовый/Продвинутый/Экспертный) она включена.
+  fitbaseProMonthlyFee: 5000,
 
   dashboardCategories: [
     {

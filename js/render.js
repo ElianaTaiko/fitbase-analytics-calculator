@@ -81,7 +81,7 @@ function buildDashboardInfoMap(includedDashboards, extraDashboards) {
   return map;
 }
 
-function renderDashboardGrid(state, config, tariff, effectiveQuota, fitbasePro) {
+function renderDashboardGrid(state, config, tariff, fitbasePro) {
   const { includedDashboards, extraDashboards } = window.Calculators.categorizeDashboards(
     tariff,
     Array.from(state.selectedDashboards),
@@ -92,7 +92,9 @@ function renderDashboardGrid(state, config, tariff, effectiveQuota, fitbasePro) 
 
   const categoriesHtml = config.dashboardCategories
     .map((category) => {
-      const quota = effectiveQuota[category.id] || 0;
+      // Всегда показываем гарантированную квоту тарифа по категории — даже если бонус
+      // Fitbase PRO в этот раз попал именно сюда, это не значит, что тариф обещает больше.
+      const quota = tariff.quota[category.id] || 0;
       const cardsHtml = category.dashboards
         .map((dash) => {
           const checked = state.selectedDashboards.has(dash.id);
@@ -143,19 +145,27 @@ function renderIntegrationStepper(state, tariff, config) {
     </div>`;
 }
 
-function quotaSummaryText(config, effectiveQuota, fitbasePro) {
-  if (fitbasePro) {
-    return "Включено в тариф: 1 дашборд любой категории на выбор (Install бесплатно). Дополнительные дашборды — платно.";
-  }
+function quotaSummaryText(config, tariff, fitbasePro) {
+  // Показывает гарантированную квоту тарифа (статично, не зависит от текущего выбора).
   const parts = config.dashboardCategories
     .map((c) => {
-      const n = effectiveQuota[c.id] || 0;
+      const n = tariff.quota[c.id] || 0;
       return { n, label: n === 1 ? c.singularLabel : c.pluralLabel };
     })
     .filter((p) => p.n > 0)
     .map((p) => `${p.n} ${p.label}`);
-  if (parts.length === 0) return "";
-  return `Включено в тариф: ${parts.join(" + ")} (Install бесплатно). Дополнительные дашборды — платно.`;
+
+  let text = "";
+  if (parts.length > 0) {
+    text = `Включено в тариф: ${parts.join(" + ")} (Install бесплатно). `;
+  }
+  // Бонус Fitbase PRO вынесен отдельным предложением, чтобы не смешивать его с квотой самого
+  // тарифа — это дополнительный дашборд СВЕРХ квоты, а не часть неё.
+  if (fitbasePro) {
+    text += "Дополнительно (бонус Fitbase PRO): ещё 1 дашборд любой категории — бесплатно. ";
+  }
+  if (text === "") return "";
+  return `${text}Прочие дашборды сверх этого — платно.`;
 }
 
 function renderFranchiseFields(state, config) {
@@ -295,13 +305,6 @@ function renderLeftColumn(state, config) {
   }
 
   const fitbasePro = !!(tariff.fitbaseProOptionEnabled && state.fitbasePro);
-  const effectiveQuota = window.Calculators.calculateDashboardTariff(
-    tariff.id,
-    Array.from(state.selectedDashboards),
-    state.extraIntegrationsCount,
-    config,
-    fitbasePro
-  ).effectiveQuota;
 
   const fitbaseProHtml =
     tariff.fitbaseProOptionEnabled
@@ -310,10 +313,10 @@ function renderLeftColumn(state, config) {
         <input type="checkbox" ${state.fitbasePro ? "checked" : ""} />
         <span>
           <span class="checkbox-field-label">Тариф Fitbase PRO</span>
-          <span class="field-hint">Клиенту на тарифе Fitbase PRO доступен бесплатно (без Install) 1 дашборд любой категории на выбор. Ежемесячная плата — ${formatMoney(
-            config.fitbaseProMonthlyFee,
+          <span class="field-hint">Добавляет ещё 1 бесплатный дашборд (без Install) любой категории сверх квоты тарифа. Ежемесячная плата тарифа не меняется — ${formatMoney(
+            tariff.monthlyFee,
             config.currency
-          )}.</span>
+          )}/мес.</span>
         </span>
       </label>`
       : "";
@@ -321,9 +324,9 @@ function renderLeftColumn(state, config) {
   const noteHtml = tariff.note ? `<p class="field-hint note-box">${escapeHtml(tariff.note)}</p>` : "";
   container.innerHTML = `
     ${fitbaseProHtml}
-    <p class="quota-summary">${quotaSummaryText(config, effectiveQuota, fitbasePro)}</p>
+    <p class="quota-summary">${quotaSummaryText(config, tariff, fitbasePro)}</p>
     ${noteHtml}
-    ${renderDashboardGrid(state, config, tariff, effectiveQuota, fitbasePro)}
+    ${renderDashboardGrid(state, config, tariff, fitbasePro)}
     ${renderIntegrationStepper(state, tariff, config)}`;
 }
 

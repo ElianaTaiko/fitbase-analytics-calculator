@@ -27,34 +27,9 @@ function deriveQuotaFromIncluded(includedDashboards, config) {
 }
 
 function categorizeDashboards(tariff, selectedDashboardIds, config, fitbasePro) {
+  // Обычная квота тарифа по категориям — порядок в конфиге (не порядок выбора), как и раньше.
   const includedDashboards = [];
-  const extraDashboards = [];
-
-  if (fitbasePro) {
-    // Fitbase PRO: 1 дашборд ЛЮБОЙ категории — бесплатно (без Install), ежемесячная плата
-    // фиксирована (config.fitbaseProMonthlyFee). Бесплатным становится тот, что выбран ПЕРВЫМ
-    // по времени клика (порядок selectedDashboardIds = порядок выбора, а не порядок в конфиге) —
-    // любой следующий выбранный дашборд уже платно, через Install по ставке его категории.
-    let freeSlotUsed = false;
-    selectedDashboardIds.forEach((dashboardId) => {
-      const meta = findDashboardMeta(config, dashboardId);
-      if (!meta) return;
-      const item = {
-        id: dashboardId,
-        label: meta.dash.label,
-        categoryId: meta.category.id,
-        categoryLabel: meta.category.label,
-      };
-      if (!freeSlotUsed) {
-        includedDashboards.push(item);
-        freeSlotUsed = true;
-      } else {
-        extraDashboards.push({ ...item, installCost: meta.category.installCost, installHours: meta.category.installHours });
-      }
-    });
-    return { includedDashboards, extraDashboards };
-  }
-
+  const overflow = [];
   const selectedSet = new Set(selectedDashboardIds);
   config.dashboardCategories.forEach((category) => {
     const quota = tariff.quota[category.id] || 0;
@@ -66,10 +41,31 @@ function categorizeDashboards(tariff, selectedDashboardIds, config, fitbasePro) 
         includedDashboards.push(item);
         takenInCategory += 1;
       } else {
-        extraDashboards.push({ ...item, installCost: category.installCost, installHours: category.installHours });
+        overflow.push({ ...item, installCost: category.installCost, installHours: category.installHours });
       }
     });
   });
+
+  if (!fitbasePro) {
+    return { includedDashboards, extraDashboards: overflow };
+  }
+
+  // Fitbase PRO: сверх обычной квоты тарифа даёт ЕЩЁ ОДИН бесплатный дашборд любой категории.
+  // Из тех, что оказались "сверх квоты", бесплатным становится выбранный РАНЬШЕ всех по времени
+  // клика (порядок selectedDashboardIds); остальные сверх квоты — как обычно, через Install.
+  const overflowIds = new Set(overflow.map((d) => d.id));
+  const wildcardId = selectedDashboardIds.find((id) => overflowIds.has(id)) || null;
+
+  const extraDashboards = [];
+  overflow.forEach((d) => {
+    if (d.id === wildcardId) {
+      const { installCost, installHours, ...bonusItem } = d;
+      includedDashboards.push(bonusItem);
+    } else {
+      extraDashboards.push(d);
+    }
+  });
+
   return { includedDashboards, extraDashboards };
 }
 
@@ -79,7 +75,7 @@ function calculateDashboardTariff(tariffId, selectedDashboardIds, extraIntegrati
   const { includedDashboards, extraDashboards } = categorizeDashboards(tariff, selectedDashboardIds, config, fitbasePro);
   const effectiveQuota = fitbasePro ? deriveQuotaFromIncluded(includedDashboards, config) : { ...tariff.quota };
 
-  const includedIntegrations = fitbasePro ? 0 : tariff.includedIntegrations || 0;
+  const includedIntegrations = tariff.includedIntegrations || 0;
   extraIntegrationsCount = Math.max(0, extraIntegrationsCount);
   const totalIntegrationsCount = includedIntegrations + extraIntegrationsCount;
   const extraIntegrationsCost = extraIntegrationsCount * config.integration.costPerUnit;
@@ -102,7 +98,7 @@ function calculateDashboardTariff(tariffId, selectedDashboardIds, extraIntegrati
   return {
     family: "dashboard",
     tariff,
-    monthlyFee: fitbasePro ? config.fitbaseProMonthlyFee : tariff.monthlyFee,
+    monthlyFee: tariff.monthlyFee,
     fitbasePro: !!fitbasePro,
     effectiveQuota,
     includedDashboards,

@@ -33,6 +33,20 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function escapeAttr(str) {
+  return escapeHtml(str).replace(/"/g, "&quot;");
+}
+
+function renderImageIcon(item, className) {
+  const fallback = item.icon || "";
+  if (!item.iconImage) return escapeHtml(fallback);
+
+  const src = `https://storage.yandexcloud.net/lab-files/icons/${item.iconImage}`;
+  return `<img class="${className}" src="${escapeAttr(src)}" alt="" loading="lazy" data-fallback="${escapeAttr(
+    fallback
+  )}" onerror="this.replaceWith(document.createTextNode(this.dataset.fallback))" />`;
+}
+
 function renderTariffSwitcher(state, config) {
   const cards = config.tariffs
     .map((t) => {
@@ -47,7 +61,7 @@ function renderTariffSwitcher(state, config) {
       return `
         <label class="tariff-switch-card ${selected ? "is-selected" : ""}" data-tariff-id="${t.id}">
           <input type="radio" name="tariff" class="sr-only" value="${t.id}" ${selected ? "checked" : ""} />
-          <div class="tariff-switch-icon">${t.icon || ""}</div>
+          <div class="tariff-switch-icon">${renderImageIcon(t, "tariff-switch-img")}</div>
           <div class="tariff-switch-label">${escapeHtml(t.label)}</div>
           ${subtitleHtml}
           <div class="tariff-switch-price">${priceLine}</div>
@@ -103,7 +117,7 @@ function renderDashboardGrid(state, config, tariff, fitbasePro) {
             <label class="dash-card ${checked ? "is-selected" : ""}" data-dashboard-id="${dash.id}">
               <input type="checkbox" class="sr-only" ${checked ? "checked" : ""} />
               <span class="dash-check-corner">${iconCheck()}</span>
-              <div class="dash-card-icon">${dash.icon || ""}</div>
+              <div class="dash-card-icon">${renderImageIcon(dash, "dash-card-img")}</div>
               <div class="dash-label">${escapeHtml(dash.label)}</div>
               ${badge}
             </label>`;

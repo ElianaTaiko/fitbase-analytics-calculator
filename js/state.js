@@ -6,13 +6,15 @@ function createInitialState(config) {
     // dashboard-тарифы
     selectedDashboards: new Set(),
     extraIntegrationsCount: 0,
+    fitbasePro: false,
     // franchise (Франшиза Партнёр)
     studioCount: 1,
     franchiseIntegrationsCount: 0,
-    // custom (Кастомизированный / Кастомизированный+)
+    // custom (Кастомизированный / Кастомизированный+ / Франшиза)
     customInstallHours: 0,
     customIntegrationsCount: 0,
-    customExtraObjects: 0,
+    customSubMode: "custom", // "custom" | "custom_plus" | "franchise"
+    franchiseType: "uk", // "uk" | "partner" — актуально только при customSubMode === "franchise"
     // общее
     offerValidityDays: config.offerValidityDaysDefault,
   };
@@ -21,27 +23,22 @@ function createInitialState(config) {
 function resetFamilyFields(state) {
   state.selectedDashboards = new Set();
   state.extraIntegrationsCount = 0;
+  state.fitbasePro = false;
   state.studioCount = 1;
   state.franchiseIntegrationsCount = 0;
   state.customInstallHours = 0;
   state.customIntegrationsCount = 0;
-  state.customExtraObjects = 0;
+  state.customSubMode = "custom";
+  state.franchiseType = "uk";
 }
 
 function selectTariff(state, config, tariffId) {
-  const prevTariff = window.Calculators.getTariff(config, state.tariffId);
-  const nextTariff = window.Calculators.getTariff(config, tariffId);
+  if (tariffId === state.tariffId) return;
   state.tariffId = tariffId;
-
-  const prevFamily = prevTariff ? prevTariff.family : null;
-  if (nextTariff.family !== prevFamily) {
-    // Смена семейства тарифа (dashboard <-> franchise <-> custom) — сбрасываем все поля выбора,
-    // так как они относятся к разным моделям ввода.
-    resetFamilyFields(state);
-  }
-  // Переход между тарифами внутри семейства "dashboard" (например, Базовый -> Продвинутый)
-  // НЕ сбрасывает выбранные дашборды/интеграции — Install просто пересчитается под квоту
-  // нового тарифа (часть того, что было "сверх квоты", может стать бесплатной, и наоборот).
+  // Любое ручное переключение тарифа (даже между Базовый/Продвинутый/Экспертный внутри
+  // одного семейства "dashboard") сбрасывает весь выбор — дашборды, интеграции, галку
+  // Fitbase PRO и т.д. Менеджер начинает расчёт заново под новый тариф.
+  resetFamilyFields(state);
 }
 
 function toggleDashboard(state, dashboardId) {
@@ -72,8 +69,16 @@ function setCustomIntegrationsCount(state, value) {
   state.customIntegrationsCount = Math.max(0, value);
 }
 
-function setCustomExtraObjects(state, value) {
-  state.customExtraObjects = Math.max(0, value);
+function setCustomSubMode(state, value) {
+  state.customSubMode = value;
+}
+
+function setFranchiseType(state, value) {
+  state.franchiseType = value;
+}
+
+function setFitbasePro(state, value) {
+  state.fitbasePro = !!value;
 }
 
 function setOfferValidityDays(state, value) {
@@ -89,6 +94,8 @@ window.AppState = {
   setFranchiseIntegrationsCount,
   setCustomInstallHours,
   setCustomIntegrationsCount,
-  setCustomExtraObjects,
+  setCustomSubMode,
+  setFranchiseType,
+  setFitbasePro,
   setOfferValidityDays,
 };

@@ -4,6 +4,7 @@
   --primary-strong: #3f35a8;
   --primary-foreground: #ffffff;
   --primary-soft: #ede9fe;
+  --primary-light: #a99cf0; /* на два тона светлее --primary */
   --secondary: #7dd3fc;
   --background: #f2effb;
   --card: rgba(255, 255, 255, 0.94);
@@ -105,16 +106,11 @@ h1, h2, h3 {
 /* Переключатель тарифов */
 .tariff-switcher {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   margin-bottom: 16px;
 }
-@media (max-width: 900px) {
-  .tariff-switcher {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-@media (max-width: 560px) {
+@media (max-width: 700px) {
   .tariff-switcher {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -205,6 +201,70 @@ h1, h2, h3 {
   border-radius: 8px;
 }
 
+/* Чекбокс-поле (например, Fitbase PRO) */
+.checkbox-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: var(--card);
+}
+.checkbox-field:hover {
+  border-color: var(--primary);
+}
+.checkbox-field input[type="checkbox"] {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.checkbox-field-label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Переключатель режимов внутри тарифа (Кастомизированный / Кастомизированный+ / Франшиза, УК/Партнёр) */
+.sub-mode-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.sub-mode-switch-nested {
+  margin-top: -6px;
+}
+.sub-mode-btn {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--foreground);
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.sub-mode-btn:hover {
+  border-color: var(--primary);
+}
+.sub-mode-btn.is-active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+.sub-mode-switch-nested .sub-mode-btn.is-active {
+  background: var(--primary-light);
+  border-color: var(--primary-light);
+  color: var(--primary-strong);
+}
+
 /* Сетка дашбордов */
 .dash-grid {
   display: flex;
@@ -228,6 +288,12 @@ h1, h2, h3 {
   font-weight: 400;
   color: var(--muted-foreground);
   font-size: 0.8rem;
+}
+.dash-category-free-hint {
+  color: #d92d20;
+  font-weight: 700;
+  font-size: 0.8rem;
+  margin-left: 4px;
 }
 .dash-category-grid {
   display: grid;
@@ -439,6 +505,11 @@ h1, h2, h3 {
 .total-box-value {
   font-size: 1.3rem;
   font-weight: 700;
+  margin-top: 4px;
+}
+.total-box-hours {
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
   margin-top: 4px;
 }
 

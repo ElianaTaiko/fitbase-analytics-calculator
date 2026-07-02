@@ -21,7 +21,7 @@
     rerenderAll();
   });
 
-  // Левая колонка: клики (дашборды, степперы Франшизы/Кастома)
+  // Левая колонка: клики (дашборды, чекбокс Fitbase PRO, степперы, переключатели режимов)
   document.getElementById("left-column-body").addEventListener("click", (e) => {
     const dashCard = e.target.closest("[data-dashboard-id]");
     if (dashCard) {
@@ -33,9 +33,27 @@
       return;
     }
 
+    const fitbaseProToggle = e.target.closest('[data-action="toggle-fitbase-pro"]');
+    if (fitbaseProToggle) {
+      window.AppState.setFitbasePro(state, !state.fitbasePro);
+      rerenderLeftAndRight();
+      return;
+    }
+
     const stepperBtn = e.target.closest("[data-action]");
     if (!stepperBtn) return;
     const action = stepperBtn.dataset.action;
+
+    if (action === "set-custom-submode") {
+      window.AppState.setCustomSubMode(state, stepperBtn.dataset.value);
+      rerenderLeftAndRight();
+      return;
+    }
+    if (action === "set-franchise-type") {
+      window.AppState.setFranchiseType(state, stepperBtn.dataset.value);
+      rerenderLeftAndRight();
+      return;
+    }
 
     if (action === "inc-integration") {
       window.AppState.setExtraIntegrationsCount(state, state.extraIntegrationsCount + 1);
@@ -60,12 +78,6 @@
       rerenderLeftAndRight();
     } else if (action === "dec-custom-integration") {
       window.AppState.setCustomIntegrationsCount(state, state.customIntegrationsCount - 1);
-      rerenderLeftAndRight();
-    } else if (action === "inc-custom-extra-object") {
-      window.AppState.setCustomExtraObjects(state, state.customExtraObjects + 1);
-      rerenderLeftAndRight();
-    } else if (action === "dec-custom-extra-object") {
-      window.AppState.setCustomExtraObjects(state, state.customExtraObjects - 1);
       rerenderLeftAndRight();
     }
   });

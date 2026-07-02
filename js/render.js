@@ -5,6 +5,18 @@ function formatMoney(amount, currency) {
   return rounded.toLocaleString("ru-RU") + " " + currency;
 }
 
+function hoursWord(n) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "час";
+  if ([2, 3, 4].includes(mod10) && ![12, 13, 14].includes(mod100)) return "часа";
+  return "часов";
+}
+
+function formatHours(hours, config) {
+  return `${hours} ${hoursWord(hours)} разработки (× ${formatMoney(config.installRatePerHour, config.currency)})`;
+}
+
 function iconCheck() {
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-check"><path d="M20 6 9 17l-5-5"></path></svg>';
 }
@@ -26,9 +38,7 @@ function renderTariffSwitcher(state, config) {
     .map((t) => {
       const selected = t.id === state.tariffId;
       let priceLine;
-      if (t.family === "franchise") {
-        priceLine = `от ${formatMoney(config.franchise.monthlyFeePerStudio, config.currency)}/мес за студию`;
-      } else if (t.family === "custom") {
+      if (t.family === "custom") {
         priceLine = `от ${formatMoney(config.custom.monthlyFeeFirstObject, config.currency)}/мес`;
       } else {
         priceLine = t.monthlyFee === 0 ? "0 ₽/мес" : formatMoney(t.monthlyFee, config.currency) + "/мес";
@@ -56,12 +66,12 @@ function renderDashboardBadge(dashInfoMap, dashId, config) {
   return "";
 }
 
-function buildDashboardInfoMap(tariff, selectedDashboards, config) {
+function buildDashboardInfoMap(effectiveQuota, selectedDashboards, config) {
   // Возвращает { dashId: {status: 'included'|'extra', installCost} } на основе текущего выбора,
   // с тем же правилом порядка по категориям, что и в calculators.js.
   const map = {};
   config.dashboardCategories.forEach((category) => {
-    const quota = tariff.quota[category.id] || 0;
+    const quota = effectiveQuota[category.id] || 0;
     let taken = 0;
     category.dashboards.forEach((dash) => {
       if (!selectedDashboards.has(dash.id)) return;
@@ -76,12 +86,12 @@ function buildDashboardInfoMap(tariff, selectedDashboards, config) {
   return map;
 }
 
-function renderDashboardGrid(state, config, tariff) {
-  const infoMap = buildDashboardInfoMap(tariff, state.selectedDashboards, config);
+function renderDashboardGrid(state, config, tariff, effectiveQuota) {
+  const infoMap = buildDashboardInfoMap(effectiveQuota, state.selectedDashboards, config);
 
   const categoriesHtml = config.dashboardCategories
     .map((category) => {
-      const quota = tariff.quota[category.id] || 0;
+      const quota = effectiveQuota[category.id] || 0;
       const cardsHtml = category.dashboards
         .map((dash) => {
           const checked = state.selectedDashboards.has(dash.id);
@@ -96,10 +106,12 @@ function renderDashboardGrid(state, config, tariff) {
             </label>`;
         })
         .join("");
+      const freeHintHtml =
+        quota > 0 ? `<span class="dash-category-free-hint">Можно выбрать ${quota} бесплатно</span>` : "";
       return `
         <div class="dash-category">
           <div class="dash-category-header">
-            <span class="dash-category-name">${escapeHtml(category.label)}</span>
+            <span class="dash-category-name">${escapeHtml(category.label)} ${freeHintHtml}</span>
             <span class="dash-category-quota">включено: ${quota}</span>
           </div>
           <div class="dash-category-grid">${cardsHtml}</div>
@@ -112,27 +124,25 @@ function renderDashboardGrid(state, config, tariff) {
 
 function renderIntegrationStepper(state, tariff, config) {
   if (!tariff.integrationOptionEnabled) return "";
-  const included = tariff.includedIntegrations;
-  const includedWord = included === 1 ? "интеграция" : included === 2 || included === 3 || included === 4 ? "интеграции" : "интеграций";
   return `
     <div class="field-block">
-      <label class="field-label">Доп. интеграции с рекламным кабинетом</label>
+      <label class="field-label">Интеграции с рекламным кабинетом</label>
       <div class="stepper">
         <button type="button" class="stepper-btn" data-action="dec-integration">${iconMinus()}</button>
         <div class="stepper-value">${state.extraIntegrationsCount}</div>
         <button type="button" class="stepper-btn" data-action="inc-integration">${iconPlus()}</button>
       </div>
-      <p class="field-hint">Тариф уже включает бесплатно: ${included} ${includedWord}. Счётчик выше — только дополнительные сверх этого, каждая — ${formatMoney(
-    config.integration.costPerUnit,
+      <p class="field-hint">Интеграция с Яндекс.Директ, рекламным кабинетом ВК, Картами Яндекс и т.п. Стоимость каждой интеграции — ${config.integration.hoursPerUnit} ч (${formatMoney(
+    config.integration.ratePerHour,
     config.currency
-  )} (${config.integration.hoursPerUnit} ч по ${formatMoney(config.integration.ratePerHour, config.currency)}/ч).</p>
+  )}/ч) = ${formatMoney(config.integration.costPerUnit, config.currency)}.</p>
     </div>`;
 }
 
-function quotaSummaryText(tariff, config) {
+function quotaSummaryText(config, effectiveQuota) {
   const parts = config.dashboardCategories
     .map((c) => {
-      const n = tariff.quota[c.id] || 0;
+      const n = effectiveQuota[c.id] || 0;
       return { n, label: n === 1 ? c.singularLabel : c.pluralLabel };
     })
     .filter((p) => p.n > 0)
@@ -186,19 +196,60 @@ function renderCustomFields(state, config) {
         <button type="button" class="stepper-btn" data-action="inc-custom-integration">${iconPlus()}</button>
       </div>
       <p class="field-hint">Каждая — ${formatMoney(c.integrationCostPerUnit, config.currency)} (${c.integrationHoursPerUnit} ч). Относится к основному объекту.</p>
-    </div>
-    <div class="field-block">
-      <label class="field-label">Доп. объекты («Кастомизированный+»)</label>
-      <div class="stepper">
-        <button type="button" class="stepper-btn" data-action="dec-custom-extra-object">${iconMinus()}</button>
-        <div class="stepper-value">${state.customExtraObjects}</div>
-        <button type="button" class="stepper-btn" data-action="inc-custom-extra-object">${iconPlus()}</button>
-      </div>
-      <p class="field-hint">Каждый доп. объект — ${formatMoney(
-        c.monthlyFeePerExtraObject,
-        config.currency
-      )}/мес, без Install и без своей интеграции.</p>
     </div>`;
+}
+
+function renderCustomSubModeSwitch(state) {
+  const modes = [
+    { value: "custom", label: "Кастомизированный" },
+    { value: "custom_plus", label: "Кастомизированный+" },
+    { value: "franchise", label: "Франшиза" },
+  ];
+  const buttonsHtml = modes
+    .map(
+      (m) => `
+      <button type="button" class="sub-mode-btn ${state.customSubMode === m.value ? "is-active" : ""}" data-action="set-custom-submode" data-value="${m.value}">${escapeHtml(
+        m.label
+      )}</button>`
+    )
+    .join("");
+  return `<div class="sub-mode-switch">${buttonsHtml}</div>`;
+}
+
+function renderFranchiseTypeSwitch(state) {
+  const types = [
+    { value: "uk", label: "Франшиза для УК" },
+    { value: "partner", label: "Франшиза для партнёра" },
+  ];
+  const buttonsHtml = types
+    .map(
+      (t) => `
+      <button type="button" class="sub-mode-btn ${state.franchiseType === t.value ? "is-active" : ""}" data-action="set-franchise-type" data-value="${t.value}">${escapeHtml(
+        t.label
+      )}</button>`
+    )
+    .join("");
+  return `<div class="sub-mode-switch sub-mode-switch-nested">${buttonsHtml}</div>`;
+}
+
+function renderCustomTariffBody(state, config) {
+  const switchHtml = renderCustomSubModeSwitch(state);
+
+  if (state.customSubMode === "franchise") {
+    const typeSwitchHtml = renderFranchiseTypeSwitch(state);
+    const fieldsHtml =
+      state.franchiseType === "partner" ? renderFranchiseFields(state, config) : renderCustomFields(state, config);
+    return `${switchHtml}${typeSwitchHtml}${fieldsHtml}`;
+  }
+
+  const plusNoteHtml =
+    state.customSubMode === "custom_plus"
+      ? `<p class="field-hint note-box">Кастомизированный+: фиксированная ежемесячная плата ${formatMoney(
+          config.custom.monthlyFeePerExtraObject,
+          config.currency
+        )} (50% скидка), суммируется с Кастомизированным — отдельный договор на доп. объект.</p>`
+      : "";
+  return `${switchHtml}${plusNoteHtml}${renderCustomFields(state, config)}`;
 }
 
 function renderLeftColumn(state, config) {
@@ -211,25 +262,35 @@ function renderLeftColumn(state, config) {
 
   const forWhomHtml = tariff.forWhom ? `<p class="quota-summary">${escapeHtml(tariff.forWhom)}</p>` : "";
 
-  if (tariff.family === "franchise") {
-    container.innerHTML = forWhomHtml + renderFranchiseFields(state, config);
+  if (tariff.family === "custom") {
+    container.innerHTML = forWhomHtml + renderCustomTariffBody(state, config);
     return;
   }
 
-  if (tariff.family === "custom") {
-    container.innerHTML = forWhomHtml + renderCustomFields(state, config);
-    return;
-  }
+  const effectiveQuota = window.Calculators.computeEffectiveQuota(tariff, config);
+
+  const fitbaseProHtml =
+    tariff.fitbaseProOptionEnabled
+      ? `
+      <label class="checkbox-field" data-action="toggle-fitbase-pro">
+        <input type="checkbox" ${state.fitbasePro ? "checked" : ""} />
+        <span>
+          <span class="checkbox-field-label">Тариф Fitbase PRO</span>
+          <span class="field-hint">Клиенту на тарифе Fitbase PRO предоставляется 1 базовый дашборд на выбор (бесплатно, без ежемесячной платы).</span>
+        </span>
+      </label>`
+      : "";
 
   const noteHtml = tariff.note ? `<p class="field-hint note-box">${escapeHtml(tariff.note)}</p>` : "";
   container.innerHTML = `
-    <p class="quota-summary">${quotaSummaryText(tariff, config)}</p>
+    ${fitbaseProHtml}
+    <p class="quota-summary">${quotaSummaryText(config, effectiveQuota)}</p>
     ${noteHtml}
-    ${renderDashboardGrid(state, config, tariff)}
+    ${renderDashboardGrid(state, config, tariff, effectiveQuota)}
     ${renderIntegrationStepper(state, tariff, config)}`;
 }
 
-function renderTotalsAndInstall(monthlyFee, installTotal, installBreakdown, config) {
+function renderTotalsAndInstall(monthlyFee, installTotal, installTotalHours, installBreakdown, config) {
   // Если причина ровно одна, сумма уже показана в блоке "Разовый платёж" выше —
   // повторно её выводить не нужно, достаточно назвать источник начисления.
   let installRows;
@@ -241,13 +302,16 @@ function renderTotalsAndInstall(monthlyFee, installTotal, installBreakdown, conf
     installRows = installBreakdown
       .map(
         (row) =>
-          `<div class="install-row"><span>${escapeHtml(row.label)}</span><span>${formatMoney(
-            row.amount,
+          `<div class="install-row"><span>${escapeHtml(row.label)}</span><span>${row.hours} ч × ${formatMoney(
+            config.installRatePerHour,
             config.currency
-          )}</span></div>`
+          )} = ${formatMoney(row.amount, config.currency)}</span></div>`
       )
       .join("");
   }
+
+  const installHoursLine =
+    installTotal > 0 ? `<div class="total-box-hours">${formatHours(installTotalHours, config)}</div>` : "";
 
   return `
     <div class="totals-grid">
@@ -257,6 +321,7 @@ function renderTotalsAndInstall(monthlyFee, installTotal, installBreakdown, conf
       </div>
       <div class="total-box total-box-neutral">
         <div class="total-box-label">Разовый платёж (Install)</div>
+        ${installHoursLine}
         <div class="total-box-value">${formatMoney(installTotal, config.currency)}</div>
       </div>
     </div>
@@ -269,10 +334,8 @@ function renderTotalsAndInstall(monthlyFee, installTotal, installBreakdown, conf
 }
 
 function renderDashboardResults(result, config) {
-  const includedLine =
-    result.includedDashboards.length > 0
-      ? result.includedDashboards.map((d) => d.label).join(", ")
-      : "нет выбранных дашбордов";
+  const allSelected = [...result.includedDashboards, ...result.extraDashboards];
+  const includedLine = allSelected.length > 0 ? allSelected.map((d) => d.label).join(", ") : "нет выбранных дашбордов";
 
   return `
     <div class="summary-table">
@@ -284,29 +347,29 @@ function renderDashboardResults(result, config) {
           : ""
       }
     </div>
-    ${renderTotalsAndInstall(result.monthlyFee, result.installTotal, result.installBreakdown, config)}`;
+    ${renderTotalsAndInstall(result.monthlyFee, result.installTotal, result.installTotalHours, result.installBreakdown, config)}`;
 }
 
 function renderFranchiseResults(result, config) {
   return `
     <div class="summary-table">
-      <div class="summary-row"><span>Тариф</span><span>${escapeHtml(result.tariff.label)} (Партнёр)</span></div>
+      <div class="summary-row"><span>Тариф</span><span>${escapeHtml(result.subModeLabel || result.tariff.label)}</span></div>
       <div class="summary-row"><span>Количество студий</span><span>${result.studioCount}</span></div>
       <div class="summary-row"><span>Интеграций с рекл. кабинетами</span><span>${result.integrationsCount}</span></div>
     </div>
-    ${renderTotalsAndInstall(result.monthlyFee, result.installTotal, result.installBreakdown, config)}`;
+    ${renderTotalsAndInstall(result.monthlyFee, result.installTotal, result.installTotalHours, result.installBreakdown, config)}`;
 }
 
 function renderCustomResults(result, config) {
   const totalObjects = 1 + result.extraObjectsCount;
   return `
     <div class="summary-table">
-      <div class="summary-row"><span>Тариф</span><span>${escapeHtml(result.tariff.label)}</span></div>
+      <div class="summary-row"><span>Тариф</span><span>${escapeHtml(result.subModeLabel || result.tariff.label)}</span></div>
       <div class="summary-row"><span>Объектов всего</span><span>${totalObjects} (1 основной + ${result.extraObjectsCount} доп.)</span></div>
       <div class="summary-row"><span>Install, часы по ТЗ</span><span>${result.installHours} ч</span></div>
       <div class="summary-row"><span>Интеграций с рекл. кабинетом</span><span>${result.integrationsCount}</span></div>
     </div>
-    ${renderTotalsAndInstall(result.monthlyFee, result.installTotal, result.installBreakdown, config)}`;
+    ${renderTotalsAndInstall(result.monthlyFee, result.installTotal, result.installTotalHours, result.installBreakdown, config)}`;
 }
 
 function renderResultsBlock(result, config) {
@@ -362,5 +425,6 @@ window.Render = {
   renderLeftColumn,
   renderRightColumn,
   formatMoney,
+  formatHours,
   escapeHtml,
 };

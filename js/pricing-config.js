@@ -1,6 +1,9 @@
 window.PRICING_CONFIG = {
   currency: "₽",
   offerValidityDaysDefault: 5,
+  // Единая ставка часа разработки — используется только для отображения Install в часах
+  // (все installCost/installHours ниже ей соответствуют: installCost = installHours * installRatePerHour).
+  installRatePerHour: 5000,
 
   dashboardCategories: [
     {
@@ -73,21 +76,6 @@ window.PRICING_CONFIG = {
 
   tariffs: [
     {
-      id: "start",
-      family: "dashboard",
-      label: "Стартовый",
-      subtitle: "(для клиентов Фитбейс ПРО)",
-      icon: "🌱",
-      forWhom: "Для клиентов с подпиской Fitbase ПРО",
-      monthlyFee: 0,
-      quota: { basic: 1, advanced: 0, expert: 0 },
-      includedIntegrations: 0,
-      dashboardGridEnabled: true,
-      integrationOptionEnabled: true,
-      note:
-        "Доступно только клиентам с активной подпиской Fitbase ПРО. Сборка 1 базового дашборда — бесплатно (без Install), без ежемесячной платы.",
-    },
-    {
       id: "basic_tier",
       family: "dashboard",
       label: "Базовый",
@@ -98,6 +86,7 @@ window.PRICING_CONFIG = {
       includedIntegrations: 0,
       dashboardGridEnabled: true,
       integrationOptionEnabled: true,
+      fitbaseProOptionEnabled: true,
     },
     {
       id: "advanced_tier",
@@ -124,19 +113,12 @@ window.PRICING_CONFIG = {
       integrationOptionEnabled: true,
     },
     {
-      id: "franchise",
-      family: "franchise",
-      label: "Франшиза",
-      icon: "🏢",
-      forWhom: "Франшиза Партнёр — отдельная студия франчайзинговой сети. Управляющая компания сети (Франшиза УК) считается по тарифу «Кастомизированный».",
-    },
-    {
       id: "custom",
       family: "custom",
       label: "Кастомизированный",
       icon: "🛠️",
       forWhom:
-        "Клиенты с индивидуальным ТЗ, в т.ч. управляющие компании франшиз (Франшиза УК). Доп. объекты того же клиента подключаются как «Кастомизированный+».",
+        "Клиенты с индивидуальным ТЗ. Три режима: «Кастомизированный» (один объект), «Кастомизированный+» (доп. объект того же клиента, отдельный договор) и «Франшиза» (для УК сети — по ставкам Кастомизированного, для партнёра сети — по ставкам за студию).",
     },
   ],
 };

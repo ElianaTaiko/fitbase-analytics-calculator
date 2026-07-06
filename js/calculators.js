@@ -51,10 +51,21 @@ function categorizeDashboards(tariff, selectedDashboardIds, config, fitbasePro) 
   }
 
   // Fitbase PRO: сверх обычной квоты тарифа даёт ЕЩЁ ОДИН бесплатный дашборд любой категории.
-  // Из тех, что оказались "сверх квоты", бесплатным становится выбранный РАНЬШЕ всех по времени
-  // клика (порядок selectedDashboardIds); остальные сверх квоты — как обычно, через Install.
-  const overflowIds = new Set(overflow.map((d) => d.id));
-  const wildcardId = selectedDashboardIds.find((id) => overflowIds.has(id)) || null;
+  // Бесплатным становится САМЫЙ ДОРОГОЙ (по installCost) из тех, что оказались "сверх квоты" —
+  // так бонус ощущается как реальная выгода и не выглядит подменой (раньше слот доставался
+  // первому по клику и мог достаться дешёвому дашборду, пока дорогой, который клиент хотел
+  // получить бесплатно, шёл в доплату — см. git history). При равной стоимости — по порядку
+  // клика (selectedDashboardIds), как и раньше.
+  let wildcardId = null;
+  let wildcardCost = -1;
+  selectedDashboardIds.forEach((id) => {
+    const d = overflow.find((o) => o.id === id);
+    if (!d) return;
+    if (d.installCost > wildcardCost) {
+      wildcardCost = d.installCost;
+      wildcardId = id;
+    }
+  });
 
   const extraDashboards = [];
   overflow.forEach((d) => {

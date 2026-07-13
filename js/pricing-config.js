@@ -1,6 +1,30 @@
 window.PRICING_CONFIG = {
   currency: "₽",
   offerValidityDaysDefault: 5,
+
+  // Валюты расчёта. fallbackRate — «единиц валюты за 1 ₽» по курсу ЦБ РФ (резерв на случай
+  // оффлайна; обновлять при деплое), актуальный курс подтягивается с cbr-xml-daily.ru
+  // (см. js/currency.js). step — шаг округления ВНИЗ: цена в валюте при обратном пересчёте
+  // в рубли никогда не превышает исходную рублёвую ставку.
+  currencies: {
+    RUB: { symbol: "₽", label: "Рубли", step: 1 },
+    KZT: {
+      symbol: "₸",
+      label: "Тенге",
+      offerLabel: "в казахстанских тенге",
+      step: 500,
+      fallbackRate: 6.0968,
+      fallbackAsOf: "11.07.2026",
+    },
+    UZS: {
+      symbol: "сум",
+      label: "Сумы",
+      offerLabel: "в узбекских сумах",
+      step: 5000,
+      fallbackRate: 157.5168,
+      fallbackAsOf: "11.07.2026",
+    },
+  },
   // Единая ставка часа разработки — используется только для отображения Install в часах
   // (все installCost/installHours ниже ей соответствуют: installCost = installHours * installRatePerHour).
   installRatePerHour: 5000,
@@ -55,9 +79,9 @@ window.PRICING_CONFIG = {
     costPerUnit: 50000,
   },
 
-  // Франшиза = Франшиза Партнёр (отдельная студия сети). Франшиза УК считается по тарифу custom.
+  // Франшиза = Франшиза Партнёр (отдельная студия сети). Франшиза УК — своя секция ниже (franchiseUk).
   franchise: {
-    monthlyFeePerStudio: 1000,
+    monthlyFeePerStudio: 2000,
     installFlat: 10000, // одноразовый пакет, не зависит от числа студий
     installFlatHours: 2,
     integrationCostPerUnit: 25000,
@@ -67,11 +91,21 @@ window.PRICING_CONFIG = {
 
   // Кастомизированный: основной объект + доп. объекты "Кастомизированный+" (без Install).
   custom: {
-    monthlyFeeFirstObject: 5000,
-    monthlyFeePerExtraObject: 2500,
+    monthlyFeeFirstObject: 6000,
+    monthlyFeePerExtraObject: 3000,
     installRatePerHour: 5000,
     integrationCostPerUnit: 50000,
     integrationHoursPerUnit: 10,
+  },
+
+  // Франшиза для УК: Install и интеграции считаются по ставкам custom (см. выше) — это не
+  // меняется. Ежемесячная плата зависит от галки "Собрать дашборд для УК со всеми
+  // подключенными объектами" (см. calculateFranchiseUkTariff): выключена — фикс. adminMonthlyFee
+  // (УК как суперадмин-инструмент, отдельного сводного дашборда нет); включена —
+  // perObjectMonthlyFee × число подключённых объектов (заменяет adminMonthlyFee, не складывается).
+  franchiseUk: {
+    adminMonthlyFee: 5500,
+    perObjectMonthlyFee: 1000,
   },
 
   tariffs: [

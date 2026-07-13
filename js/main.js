@@ -1,23 +1,53 @@
 (function () {
-  const config = window.PRICING_CONFIG;
-  const state = window.AppState.createInitialState(config);
+  const baseConfig = window.PRICING_CONFIG;
+  const state = window.AppState.createInitialState(baseConfig);
+
+  // Конфиг в валюте state.currency (для рублей — исходный PRICING_CONFIG).
+  // Мемоизация по валюте и курсу: пересборка только при смене валюты или приходе
+  // свежего курса ЦБ РФ, а не на каждый клик.
+  let cachedConfig = baseConfig;
+  let cachedConfigKey = "RUB:1";
+  function activeConfig() {
+    const rate = window.Currency.getRateInfo(baseConfig, state.currency).rate;
+    const key = state.currency + ":" + rate;
+    if (key !== cachedConfigKey) {
+      cachedConfig = window.Currency.buildConfig(baseConfig, state.currency);
+      cachedConfigKey = key;
+    }
+    return cachedConfig;
+  }
 
   function rerenderAll() {
-    window.Render.renderAll(state, config);
+    window.Render.renderAll(state, activeConfig());
   }
   function rerenderLeftAndRight() {
-    window.Render.renderLeftColumn(state, config);
-    window.Render.renderRightColumn(state, config);
+    window.Render.renderLeftColumn(state, activeConfig());
+    window.Render.renderRightColumn(state, activeConfig());
   }
   function rerenderRightOnly() {
-    window.Render.renderRightColumn(state, config);
+    window.Render.renderRightColumn(state, activeConfig());
   }
+
+  // Переключатель валют (шапка)
+  document.getElementById("currency-switcher-slot").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-currency]");
+    if (!btn || btn.dataset.currency === state.currency) return;
+    window.AppState.setCurrency(state, btn.dataset.currency);
+    rerenderAll();
+  });
+
+  // Пришёл свежий курс ЦБ РФ — перерисовываем, если выбрана не-рублёвая валюта
+  // (activeConfig пересоберёт конфиг сам: курс входит в ключ мемоизации).
+  window.Currency.setOnRatesUpdated(() => {
+    if (state.currency !== "RUB") rerenderAll();
+  });
+  window.Currency.fetchRates();
 
   // Переключатель тарифов
   document.getElementById("tariff-switcher-slot").addEventListener("click", (e) => {
     const card = e.target.closest("[data-tariff-id]");
     if (!card) return;
-    window.AppState.selectTariff(state, config, card.dataset.tariffId);
+    window.AppState.selectTariff(state, activeConfig(), card.dataset.tariffId);
     rerenderAll();
   });
 
@@ -25,7 +55,7 @@
   document.getElementById("left-column-body").addEventListener("click", (e) => {
     const dashCard = e.target.closest("[data-dashboard-id]");
     if (dashCard) {
-      const tariff = window.Calculators.getTariff(config, state.tariffId);
+      const tariff = window.Calculators.getTariff(activeConfig(), state.tariffId);
       if (tariff.dashboardGridEnabled) {
         window.AppState.toggleDashboard(state, dashCard.dataset.dashboardId);
         rerenderLeftAndRight();
@@ -43,6 +73,13 @@
     const franchiseToggle = e.target.closest('[data-action="toggle-franchise-mode"]');
     if (franchiseToggle) {
       window.AppState.setFranchiseMode(state, !state.franchiseMode);
+      rerenderLeftAndRight();
+      return;
+    }
+
+    const ukConsolidatedToggle = e.target.closest('[data-action="toggle-uk-consolidated-dashboard"]');
+    if (ukConsolidatedToggle) {
+      window.AppState.setUkConsolidatedDashboard(state, !state.ukConsolidatedDashboard);
       rerenderLeftAndRight();
       return;
     }
@@ -85,6 +122,12 @@
       rerenderLeftAndRight();
     } else if (action === "dec-custom-integration") {
       window.AppState.setCustomIntegrationsCount(state, state.customIntegrationsCount - 1);
+      rerenderLeftAndRight();
+    } else if (action === "inc-uk-objects") {
+      window.AppState.setUkConnectedObjectsCount(state, state.ukConnectedObjectsCount + 1);
+      rerenderLeftAndRight();
+    } else if (action === "dec-uk-objects") {
+      window.AppState.setUkConnectedObjectsCount(state, state.ukConnectedObjectsCount - 1);
       rerenderLeftAndRight();
     }
   });

@@ -16,7 +16,11 @@ function createInitialState(config) {
     customSubMode: "custom", // "custom" | "custom_plus" — актуально только при franchiseMode === false
     franchiseMode: false, // флажок "Франшиза"
     franchiseType: "uk", // "uk" | "partner" — актуально только при franchiseMode === true
-    // общее
+    // franchise UK (актуально только при franchiseMode === true && franchiseType === "uk")
+    ukConsolidatedDashboard: false, // галка "Собрать дашборд для УК со всеми подключенными объектами"
+    ukConnectedObjectsCount: 1, // используется только когда ukConsolidatedDashboard === true
+    // общее (не сбрасывается при смене тарифа)
+    currency: "RUB", // "RUB" | "KZT" | "UZS" — валюта отображения расчёта
     offerValidityDays: config.offerValidityDaysDefault,
   };
 }
@@ -32,6 +36,8 @@ function resetFamilyFields(state) {
   state.customSubMode = "custom";
   state.franchiseMode = false;
   state.franchiseType = "uk";
+  state.ukConsolidatedDashboard = false;
+  state.ukConnectedObjectsCount = 1;
 }
 
 function selectTariff(state, config, tariffId) {
@@ -83,8 +89,20 @@ function setFranchiseType(state, value) {
   state.franchiseType = value;
 }
 
+function setUkConsolidatedDashboard(state, value) {
+  state.ukConsolidatedDashboard = !!value;
+}
+
+function setUkConnectedObjectsCount(state, value) {
+  state.ukConnectedObjectsCount = Math.max(0, value);
+}
+
 function setFitbasePro(state, value) {
   state.fitbasePro = !!value;
+}
+
+function setCurrency(state, value) {
+  state.currency = value;
 }
 
 function setOfferValidityDays(state, value) {
@@ -103,6 +121,9 @@ window.AppState = {
   setCustomSubMode,
   setFranchiseMode,
   setFranchiseType,
+  setUkConsolidatedDashboard,
+  setUkConnectedObjectsCount,
   setFitbasePro,
+  setCurrency,
   setOfferValidityDays,
 };

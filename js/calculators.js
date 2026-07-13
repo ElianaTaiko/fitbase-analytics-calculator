@@ -158,6 +158,51 @@ function calculateFranchiseTariff(studioCount, integrationsCount, config) {
   };
 }
 
+function calculateFranchiseUkTariff(consolidatedDashboard, installHours, integrationsCount, connectedObjectsCount, config) {
+  const c = config.custom;
+  const fUk = config.franchiseUk;
+  const tariff = getTariff(config, "custom");
+  installHours = Math.max(0, installHours || 0);
+  integrationsCount = Math.max(0, integrationsCount || 0);
+  connectedObjectsCount = Math.max(0, connectedObjectsCount || 0);
+
+  // Варианты взаимоисключающие — не складываются: либо фикс. плата "как есть" (УК-суперадмин
+  // без сводного дашборда), либо по кол-ву подключённых объектов (сводный дашборд УК).
+  const monthlyFee = consolidatedDashboard
+    ? connectedObjectsCount * fUk.perObjectMonthlyFee
+    : fUk.adminMonthlyFee;
+
+  // Install/интеграции — те же правила, что у "Кастомизированного", не зависят от галки.
+  const installBase = installHours * c.installRatePerHour;
+  const integrationsCost = integrationsCount * c.integrationCostPerUnit;
+  const installTotal = installBase + integrationsCost;
+
+  const installBreakdown = [];
+  if (installBase > 0) {
+    installBreakdown.push({ label: `Install по ТЗ (${installHours} ч)`, amount: installBase, hours: installHours });
+  }
+  if (integrationsCost > 0) {
+    installBreakdown.push({
+      label: `Интеграция с рекламным кабинетом × ${integrationsCount}`,
+      amount: integrationsCost,
+      hours: c.integrationHoursPerUnit * integrationsCount,
+    });
+  }
+
+  return {
+    family: "franchise_uk",
+    tariff,
+    monthlyFee,
+    consolidatedDashboard: !!consolidatedDashboard,
+    installHours,
+    integrationsCount,
+    connectedObjectsCount,
+    installTotal,
+    installTotalHours: installTotal / config.installRatePerHour,
+    installBreakdown,
+  };
+}
+
 function calculateCustomTariff(installHours, integrationsCount, extraObjectsCount, config) {
   const c = config.custom;
   const tariff = getTariff(config, "custom");
@@ -165,7 +210,9 @@ function calculateCustomTariff(installHours, integrationsCount, extraObjectsCoun
   integrationsCount = Math.max(0, integrationsCount || 0);
   extraObjectsCount = Math.max(0, extraObjectsCount || 0);
 
-  const monthlyFee = c.monthlyFeeFirstObject + extraObjectsCount * c.monthlyFeePerExtraObject;
+  // "Кастомизированный+" — отдельный договор на доп. объект с фиксированной платой, НЕ
+  // суммируется с платой за основной объект (extraObjectsCount всегда 0 или 1).
+  const monthlyFee = extraObjectsCount > 0 ? c.monthlyFeePerExtraObject : c.monthlyFeeFirstObject;
   const installBase = installHours * c.installRatePerHour;
   const integrationsCost = integrationsCount * c.integrationCostPerUnit;
   const installTotal = installBase + integrationsCost;
@@ -206,7 +253,13 @@ function calculateCurrentSelection(state, config) {
         result = calculateFranchiseTariff(state.studioCount, state.franchiseIntegrationsCount, config);
         result.subModeLabel = "Франшиза для партнёра";
       } else {
-        result = calculateCustomTariff(state.customInstallHours, state.customIntegrationsCount, 0, config);
+        result = calculateFranchiseUkTariff(
+          state.ukConsolidatedDashboard,
+          state.customInstallHours,
+          state.customIntegrationsCount,
+          state.ukConnectedObjectsCount,
+          config
+        );
         result.subModeLabel = "Франшиза для УК";
       }
     } else {
@@ -235,6 +288,7 @@ window.Calculators = {
   categorizeDashboards,
   calculateDashboardTariff,
   calculateFranchiseTariff,
+  calculateFranchiseUkTariff,
   calculateCustomTariff,
   calculateCurrentSelection,
 };

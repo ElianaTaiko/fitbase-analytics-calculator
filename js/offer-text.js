@@ -10,7 +10,7 @@ function bold(text) {
   return `<strong>${esc(text)}</strong>`;
 }
 
-function buildOfferHtml(result, config, validUntilStr) {
+function buildOfferHtml(result, config, validUntilStr, currencyCode) {
   const money = window.Render.formatMoney;
   const hours = window.Render.formatHours;
   const lines = [];
@@ -24,6 +24,14 @@ function buildOfferHtml(result, config, validUntilStr) {
       `Включено: ${result.studioCount} студ. × ${bold(
         money(config.franchise.monthlyFeePerStudio, config.currency) + "/мес"
       )}; интеграций с рекламными кабинетами — ${result.integrationsCount}`
+    );
+  } else if (result.family === "franchise_uk") {
+    const modeLabel = result.consolidatedDashboard
+      ? "сводный дашборд УК"
+      : "УК как суперадмин-инструмент (без сводного дашборда)";
+    const objectsPart = result.consolidatedDashboard ? `; подключено объектов — ${result.connectedObjectsCount}` : "";
+    lines.push(
+      `Включено: вариант — ${modeLabel}${objectsPart}; Install по ТЗ — ${result.installHours} ч; интеграций с рекламным кабинетом — ${result.integrationsCount}`
     );
   } else if (result.family === "custom") {
     const totalObjects = 1 + result.extraObjectsCount;
@@ -64,13 +72,26 @@ function buildOfferHtml(result, config, validUntilStr) {
       );
     });
   } else if (result.family === "dashboard") {
-    lines.push(`Разовый платёж (Install): ${bold("0 ₽")} — все выбранные дашборды входят в тариф`);
+    lines.push(
+      `Разовый платёж (Install): ${bold(money(0, config.currency))} — все выбранные дашборды входят в тариф`
+    );
   } else {
-    lines.push(`Разовый платёж (Install): ${bold("0 ₽")}`);
+    lines.push(`Разовый платёж (Install): ${bold(money(0, config.currency))}`);
   }
 
   lines.push("");
   lines.push(`Предложение действительно до ${esc(validUntilStr)}`);
+
+  // Для не-рублёвых валют фиксируем в КП курс и дату, по которым выполнен расчёт.
+  if (currencyCode && currencyCode !== "RUB") {
+    const base = window.PRICING_CONFIG;
+    const def = base.currencies[currencyCode];
+    const info = window.Currency.getRateInfo(base, currencyCode);
+    const rateStr = info.rate.toLocaleString("ru-RU", { maximumFractionDigits: 2 });
+    const sourceLabel = info.source === "ЦБ РФ" ? `по курсу ЦБ РФ на ${info.asOfLabel}` : `по резервному курсу на ${info.asOfLabel}`;
+    lines.push("");
+    lines.push(esc(`Расчёт выполнен ${def.offerLabel} ${sourceLabel} (1 ₽ = ${rateStr} ${def.symbol}).`));
+  }
 
   return lines.join("\n");
 }

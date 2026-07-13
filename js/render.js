@@ -47,15 +47,48 @@ function renderImageIcon(item, className) {
   )}" onerror="this.replaceWith(document.createTextNode(this.dataset.fallback))" />`;
 }
 
+// Переключатель валюты расчёта (шапка). Список валют — из config.currencies.
+function renderCurrencySwitcher(state, config) {
+  const buttons = Object.keys(config.currencies)
+    .map((code) => {
+      const c = config.currencies[code];
+      return `<button type="button" class="currency-btn ${
+        state.currency === code ? "is-active" : ""
+      }" data-currency="${code}" title="${escapeAttr(c.label)}">${escapeHtml(c.symbol)}</button>`;
+    })
+    .join("");
+  return `<div class="currency-switch" role="group" aria-label="Валюта расчёта">${buttons}</div>`;
+}
+
+// Подпись курса над результатами: показывается только для не-рублёвых валют.
+// Курс и шаг округления берутся из базового (рублёвого) конфига — конвертированный
+// конфиг содержит уже переведённые ставки.
+function renderRateCaption(state) {
+  if (state.currency === "RUB") return "";
+  const base = window.PRICING_CONFIG;
+  const def = base.currencies[state.currency];
+  const info = window.Currency.getRateInfo(base, state.currency);
+  const rateStr = info.rate.toLocaleString("ru-RU", { maximumFractionDigits: 2 });
+  const sourceLabel = info.source === "ЦБ РФ" ? `Курс ЦБ РФ от ${info.asOfLabel}` : `Резервный курс от ${info.asOfLabel}`;
+  const stepStr = def.step.toLocaleString("ru-RU");
+  return `<p class="rate-caption">${escapeHtml(
+    `${sourceLabel}: 1 ₽ = ${rateStr} ${def.symbol}. Суммы округлены вниз с шагом ${stepStr} ${def.symbol} — при пересчёте обратно в рубли цена не превышает рублёвую.`
+  )}</p>`;
+}
+
 function renderTariffSwitcher(state, config) {
   const cards = config.tariffs
     .map((t) => {
       const selected = t.id === state.tariffId;
       let priceLine;
       if (t.family === "custom") {
-        priceLine = `от ${formatMoney(config.custom.monthlyFeeFirstObject, config.currency)}/мес`;
+        // "От" — минимальная фиксированная ежемесячная плата среди вариантов, доступных под
+        // этой карточкой: обычный "Кастомизированный" или "Франшиза для УК" (админ-режим).
+        // Не берём в расчёт "Франшиза для Партнёра" — там ставка за студию, другая модель.
+        const startingPrice = Math.min(config.custom.monthlyFeeFirstObject, config.franchiseUk.adminMonthlyFee);
+        priceLine = `от ${formatMoney(startingPrice, config.currency)}/мес`;
       } else {
-        priceLine = t.monthlyFee === 0 ? "0 ₽/мес" : formatMoney(t.monthlyFee, config.currency) + "/мес";
+        priceLine = formatMoney(t.monthlyFee, config.currency) + "/мес";
       }
       const subtitleHtml = t.subtitle ? `<div class="tariff-switch-subtitle">${escapeHtml(t.subtitle)}</div>` : "";
       return `
@@ -211,6 +244,36 @@ function renderFranchiseFields(state, config) {
     )} (${f.installFlatHours} ч) — разовый платёж для партнёра, не зависит от количества студий.</p>`;
 }
 
+function renderFranchiseUkFields(state, config) {
+  const fUk = config.franchiseUk;
+  const checkboxHtml = `
+    <label class="checkbox-field" data-action="toggle-uk-consolidated-dashboard">
+      <input type="checkbox" ${state.ukConsolidatedDashboard ? "checked" : ""} />
+      <span>
+        <span class="checkbox-field-label">Собрать дашборд для УК со всеми подключенными объектами</span>
+        <span class="field-hint">Если выключено — УК суперадмин с доступом к дашбордам всех партнёров по отдельности, без сводного дашборда.</span>
+      </span>
+    </label>`;
+
+  const modeBodyHtml = state.ukConsolidatedDashboard
+    ? `
+    <div class="field-block">
+      <label class="field-label">Подключено объектов партнёров</label>
+      <div class="stepper">
+        <button type="button" class="stepper-btn" data-action="dec-uk-objects">${iconMinus()}</button>
+        <div class="stepper-value">${state.ukConnectedObjectsCount}</div>
+        <button type="button" class="stepper-btn" data-action="inc-uk-objects">${iconPlus()}</button>
+      </div>
+      <p class="field-hint">${formatMoney(fUk.perObjectMonthlyFee, config.currency)}/мес за каждый подключённый объект.</p>
+    </div>`
+    : `<p class="field-hint note-box">Ежемесячная плата: ${formatMoney(
+        fUk.adminMonthlyFee,
+        config.currency
+      )}/мес (УК как суперадмин-инструмент, без сводного дашборда).</p>`;
+
+  return `${checkboxHtml}${modeBodyHtml}${renderCustomFields(state, config)}`;
+}
+
 function renderCustomFields(state, config) {
   const c = config.custom;
   return `
@@ -262,7 +325,7 @@ function renderFranchiseTypeCards(state) {
     {
       value: "uk",
       title: "Франшиза для УК",
-      desc: "Считается по тем же ставкам, что и «Кастомизированный»: Install по ТЗ (часы разработки) + интеграции.",
+      desc: "Install по ТЗ (часы разработки) + интеграции. По умолчанию УК становится суперадмином с доступом ко всем дашбордам партнёров. Вместо этого можно собрать один сводный дашборд для УК, отметив флажок ниже (внимание: это повлият на величину ежемесячной оплаты).",
     },
     {
       value: "partner",
@@ -288,7 +351,7 @@ function renderCustomTariffBody(state, config) {
   if (state.franchiseMode) {
     const cardsHtml = renderFranchiseTypeCards(state);
     const fieldsHtml =
-      state.franchiseType === "partner" ? renderFranchiseFields(state, config) : renderCustomFields(state, config);
+      state.franchiseType === "partner" ? renderFranchiseFields(state, config) : renderFranchiseUkFields(state, config);
     return `${toggleHtml}${cardsHtml}${fieldsHtml}`;
   }
 
@@ -298,7 +361,7 @@ function renderCustomTariffBody(state, config) {
       ? `<p class="field-hint note-box">Кастомизированный+: фиксированная ежемесячная плата ${formatMoney(
           config.custom.monthlyFeePerExtraObject,
           config.currency
-        )} (50% скидка), суммируется с Кастомизированным — отдельный договор на доп. объект.</p>`
+        )} — отдельный договор на доп. объект, НЕ суммируется с платой за основной объект по тарифу «Кастомизированный».</p>`
       : "";
   return `${toggleHtml}${switchHtml}${plusNoteHtml}${renderCustomFields(state, config)}`;
 }
@@ -414,6 +477,24 @@ function renderFranchiseResults(result, config) {
     ${renderTotalsAndInstall(result.monthlyFee, result.installTotal, result.installTotalHours, result.installBreakdown, config)}`;
 }
 
+function renderFranchiseUkResults(result, config) {
+  const modeLabel = result.consolidatedDashboard
+    ? "Сводный дашборд УК"
+    : "УК как суперадмин-инструмент (без сводного дашборда)";
+  const objectsRow = result.consolidatedDashboard
+    ? `<div class="summary-row"><span>Подключено объектов</span><span>${result.connectedObjectsCount}</span></div>`
+    : "";
+  return `
+    <div class="summary-table">
+      <div class="summary-row"><span>Тариф</span><span>${escapeHtml(result.subModeLabel || result.tariff.label)}</span></div>
+      <div class="summary-row"><span>Вариант дашборда УК</span><span>${escapeHtml(modeLabel)}</span></div>
+      ${objectsRow}
+      <div class="summary-row"><span>Install, часы по ТЗ</span><span>${result.installHours} ч</span></div>
+      <div class="summary-row"><span>Интеграций с рекл. кабинетом</span><span>${result.integrationsCount}</span></div>
+    </div>
+    ${renderTotalsAndInstall(result.monthlyFee, result.installTotal, result.installTotalHours, result.installBreakdown, config)}`;
+}
+
 function renderCustomResults(result, config) {
   const totalObjects = 1 + result.extraObjectsCount;
   return `
@@ -428,6 +509,7 @@ function renderCustomResults(result, config) {
 
 function renderResultsBlock(result, config) {
   if (result.family === "franchise") return renderFranchiseResults(result, config);
+  if (result.family === "franchise_uk") return renderFranchiseUkResults(result, config);
   if (result.family === "custom") return renderCustomResults(result, config);
   return renderDashboardResults(result, config);
 }
@@ -437,7 +519,7 @@ function renderOfferCard(state, config, result) {
   validUntil.setDate(validUntil.getDate() + state.offerValidityDays);
   const validUntilStr = validUntil.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
 
-  const offerHtml = window.OfferText.buildOfferHtml(result, config, validUntilStr);
+  const offerHtml = window.OfferText.buildOfferHtml(result, config, validUntilStr, state.currency);
 
   return `
     <div class="card offer-card" id="offer-card">
@@ -462,13 +544,14 @@ function renderOfferCard(state, config, result) {
 function renderRightColumn(state, config) {
   const result = window.Calculators.calculateCurrentSelection(state, config);
   const resultsContainer = document.getElementById("results-card-body");
-  resultsContainer.innerHTML = renderResultsBlock(result, config);
+  resultsContainer.innerHTML = renderRateCaption(state) + renderResultsBlock(result, config);
 
   const offerContainer = document.getElementById("offer-card-slot");
   offerContainer.innerHTML = renderOfferCard(state, config, result);
 }
 
 function renderAll(state, config) {
+  document.getElementById("currency-switcher-slot").innerHTML = renderCurrencySwitcher(state, config);
   document.getElementById("tariff-switcher-slot").innerHTML = renderTariffSwitcher(state, config);
   renderLeftColumn(state, config);
   renderRightColumn(state, config);

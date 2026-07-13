@@ -698,4 +698,29 @@ h1, h2, h3 {
   body.printing-offer .field-block {
     display: none !important;
   }
+  /* В PDF — чистый текст без рамок, фонов и теней */
+  body.printing-offer {
+    background: #fff;
+  }
+  body.printing-offer::before {
+    display: none; /* фоновый узор-треугольники */
+  }
+  /* Заголовок карточки дублирует первую строку самого КП («💼 Коммерческое предложение…») */
+  body.printing-offer .offer-card-header {
+    display: none !important;
+  }
+  body.printing-offer .offer-card {
+    border: none;
+    box-shadow: none;
+    background: #fff;
+    border-radius: 0;
+    padding: 0;
+  }
+  body.printing-offer .offer-text {
+    border: none;
+    background: none;
+    border-radius: 0;
+    padding: 0;
+    margin: 10px 0 0;
+  }
 }

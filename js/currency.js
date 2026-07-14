@@ -61,10 +61,12 @@
     return { rate: def.fallbackRate, asOfLabel: def.fallbackAsOf, source: "резервный" };
   }
 
-  // Округление вниз до шага валюты: при обратном пересчёте в рубли сумма
-  // гарантированно не превышает исходную рублёвую ставку.
-  function convertDown(rubAmount, rate, step) {
-    return Math.floor((rubAmount * rate) / step) * step;
+  // Округление вниз до шага валюты. Инвариант: при обратном пересчёте в рубли сумма
+  // (для валют с vatRate — за вычетом НДС) гарантированно не превышает исходную
+  // рублёвую ставку. НДС (например, 12% для Узбекистана) добавляется здесь же,
+  // до округления, чтобы каждая ставка конфига уже включала налог.
+  function convertDown(rubAmount, rate, vatMult, step) {
+    return Math.floor((rubAmount * rate * vatMult) / step) * step;
   }
 
   // Копия PRICING_CONFIG со ставками в выбранной валюте. Часовые стоимости (Install,
@@ -75,7 +77,8 @@
     if (code === "RUB") return baseConfig;
     const def = baseConfig.currencies[code];
     const rate = getRateInfo(baseConfig, code).rate;
-    const conv = (rub) => convertDown(rub, rate, def.step);
+    const vatMult = 1 + (def.vatRate || 0);
+    const conv = (rub) => convertDown(rub, rate, vatMult, def.step);
 
     const cfg = JSON.parse(JSON.stringify(baseConfig));
     cfg.currency = def.symbol;

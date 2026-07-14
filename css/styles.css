@@ -270,10 +270,9 @@ h1, h2, h3 {
   color: var(--primary-foreground);
 }
 
-/* Подпись курса валюты над результатами расчёта */
-.rate-caption {
-  margin: 0 0 12px;
-  font-size: 0.8rem;
+/* Пояснение про НДС в конце КП — мелким шрифтом */
+.offer-vat-note {
+  font-size: 0.85em;
   color: var(--muted-foreground);
 }
 

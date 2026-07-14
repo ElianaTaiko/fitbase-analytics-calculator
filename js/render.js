@@ -60,22 +60,6 @@ function renderCurrencySwitcher(state, config) {
   return `<div class="currency-switch" role="group" aria-label="Валюта расчёта">${buttons}</div>`;
 }
 
-// Подпись курса над результатами: показывается только для не-рублёвых валют.
-// Курс и шаг округления берутся из базового (рублёвого) конфига — конвертированный
-// конфиг содержит уже переведённые ставки.
-function renderRateCaption(state) {
-  if (state.currency === "RUB") return "";
-  const base = window.PRICING_CONFIG;
-  const def = base.currencies[state.currency];
-  const info = window.Currency.getRateInfo(base, state.currency);
-  const rateStr = info.rate.toLocaleString("ru-RU", { maximumFractionDigits: 2 });
-  const sourceLabel = info.source === "ЦБ РФ" ? `Курс ЦБ РФ от ${info.asOfLabel}` : `Резервный курс от ${info.asOfLabel}`;
-  const stepStr = def.step.toLocaleString("ru-RU");
-  return `<p class="rate-caption">${escapeHtml(
-    `${sourceLabel}: 1 ₽ = ${rateStr} ${def.symbol}. Суммы округлены вниз с шагом ${stepStr} ${def.symbol} — при пересчёте обратно в рубли цена не превышает рублёвую.`
-  )}</p>`;
-}
-
 function renderTariffSwitcher(state, config) {
   const cards = config.tariffs
     .map((t) => {
@@ -544,7 +528,7 @@ function renderOfferCard(state, config, result) {
 function renderRightColumn(state, config) {
   const result = window.Calculators.calculateCurrentSelection(state, config);
   const resultsContainer = document.getElementById("results-card-body");
-  resultsContainer.innerHTML = renderRateCaption(state) + renderResultsBlock(result, config);
+  resultsContainer.innerHTML = renderResultsBlock(result, config);
 
   const offerContainer = document.getElementById("offer-card-slot");
   offerContainer.innerHTML = renderOfferCard(state, config, result);

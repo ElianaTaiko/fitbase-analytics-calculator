@@ -99,6 +99,10 @@ function buildOfferHtml(result, config, validUntilStr, currencyCode) {
     const sourceLabel = info.source === "ЦБ РФ" ? `по курсу ЦБ РФ на ${info.asOfLabel}` : `по резервному курсу на ${info.asOfLabel}`;
     lines.push("");
     lines.push(esc(`Расчёт выполнен ${def.offerLabel} ${sourceLabel} (1 ₽ = ${rateStr} ${def.symbol}).`));
+    if (def.vatRate) {
+      // Пояснение мелким шрифтом (класс задаёт размер): все суммы выше уже включают НДС.
+      lines.push(`<span class="offer-vat-note">Включая НДС ${esc(Math.round(def.vatRate * 100))}%</span>`);
+    }
   }
 
   return lines.join("\n");
